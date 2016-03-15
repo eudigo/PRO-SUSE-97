@@ -1,7 +1,9 @@
-# Suse-Oracle-QPopper-97
+# PRO-SUSE-97
+# PRO-SUSE-97 = "Procmail + RADIUS customized to access an ORACLE database installed in SUSE Linux (1st version, Year 1997)
+#
 
 Overview ::
-This Project goal was to customize QPopper&amp;RADIUS to access Oracle db in Suse Linux environment
+This Project goal was to customize the following (1)Procmail and RADIUS to access Oracle db in Suse Linux environment
 
 Project originally implemented as follows:
 when                  :: 27, April 1999
