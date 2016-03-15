@@ -1,0 +1,250 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(flock.c)
+AC_CONFIG_HEADER(config.h)
+
+dnl Checks for programs.
+AC_PROG_MAKE_SET
+AC_PROG_CC
+AC_ISC_POSIX
+if test "$ISC" = yes 
+then
+	AC_CHECK_LIB(cposix, main)
+	AC_CHECK_LIB(inet,bzero,NETWORK_LIBS="$NETWORK_LIBS -linet")
+fi
+if test "$GCC" = yes 
+then
+	CFLAGS="$CFLAGS -fstrength-reduce -fpcc-struct-return "
+fi
+AC_SUBST(CC)
+AC_SUBST(CFLAGS)
+
+AC_ARG_ENABLE(debugging, [ --enable-debugging	compiling in debug code], 
+	debugging="$enableval", debugging="no")
+if test "$debugging" != "no"; then
+	AC_MSG_RESULT(Will compile in debugging code)
+	AC_DEFINE(DEBUG)
+else
+	AC_MSG_RESULT(Will NOT compile in debugging code)
+fi
+
+AC_ARG_ENABLE(servermode, [ --enable-servermode    enable SERVER_MODE ], 
+	servermode="$enableval", servermode="no")
+if test "$servermode" != "no"; then
+	AC_MSG_RESULT(Enabled SERVER_MODE)
+	AC_DEFINE(SERVER_MODE)
+fi
+
+AC_ARG_ENABLE(bulletins, [ --enable-bulletins=directory    Set the path for bulletin directory [/var/spool/bulls]], bulletins="$enableval", bulletins="no")
+if test "$bulletins" != "no" ; then
+    AC_MSG_RESULT(Bulletin support is enabled)
+    if test "$bulletins" != "yes" ; then
+        AC_DEFINE_UNQUOTED(BULLDIR,"$bulletins")
+    else
+        AC_DEFINE_UNQUOTED(BULLDIR,"/var/spool/bulls")
+    fi
+fi
+
+AC_ARG_ENABLE(specialauth, [ --enable-specialauth     enable secure crypt or shadow passwords ],
+	specialauth="$specialauth", specialauth="no")
+if test "$specialauth" != "no"; then
+	AC_MSG_RESULT(Defining AUTH_SPECIAL)
+	AC_DEFINE(AUTH_SPECIAL)
+	AUTH="yes"
+fi
+
+AC_ARG_ENABLE(apop, [ --enable-apop=path       Set the pop.auth file path [/etc/pop.auth]], apop="$enableval", apop="no")
+if test "$apop" != "no" ; then
+    AC_MSG_RESULT(APOP is enabled.)
+    TARGET="popauth"
+    if test "$apop" != "yes" ; then
+        AC_DEFINE_UNQUOTED(APOP,"$apop")
+    else
+        AC_DEFINE_UNQUOTED(APOP,"/etc/pop.auth") 
+    fi
+fi
+
+AC_ARG_WITH(apopuid, [ --with-apopuid=pop       Set the user who would own the pop.auth file. [pop]], apopuid=$withval, apopuid="no")
+if test "${apopuid}" != "no" ; then
+    if test "${apopuid}" != "yes" ; then
+        AC_DEFINE_UNQUOTED(POPUID,"$apopuid")
+    else
+        AC_DEFINE_UNQUOTED(POPUID,"pop")
+    fi
+else
+    if test "$apop" != "no" ; then
+        AC_DEFINE_UNQUOTED(POPUID,"pop")
+    fi
+fi
+
+dnl
+dnl query for the OS options
+dnl
+
+SYS_NAME="`uname -sr 2>/dev/null | sed 1q`"
+if test -z "\$SYS_NAME"; then SYS_NAME=unknown;fi
+	   
+OS_NAME="`echo $SYS_NAME 2>/dev/null | sed -e 's/[ ].*//'`"
+OS_VERSION="`echo $SYS_NAME 2>/dev/null | sed -e 's/.*[ ]//'`"
+case $OS_NAME in
+    SunOS)
+	case $OS_VERSION in
+	    [5]*) O_DEFS="$O_DEFS -DSOLARIS2 -DAUTH_SPECIAL -DGNU_PASS -DNO_GETLINE -DCONTENT_LENGTH=1" ;;
+	    [4]*) O_DEFS="$O_DEFS -DSUNOS4" ;;
+	    *) ;;
+	esac ;;
+    OSF1) O_DEFS="$O_DEFS -DOSF1" ;;
+    HP*) O_DEFS="$O_DEFS -DHPUX" 
+	OS_VERSION="`echo $OS_VERSION 2>/dev/null | sed -e 's/..//'`"
+	case $OS_VERSION in
+		[1][0]*) O_DEFS="$O_DEFS -DHPUX10" 
+                         if test $AUTH = "yes"; then
+                            LIBS="$LIBS -lsec"
+                         fi;;
+		*) ;;
+	esac ;;
+    AIX*) O_DEFS="$O_DEFS -DAIX" ;;
+    IRIX*) O_DEFS="-cckr $O_DEFS -DIRIX" ;;
+    BSD*) O_DEFS="$O_DEFS -DBSD" ;;
+    FreeBSD*) O_DEFS="$O_DEFS -DBSD" ;;
+    Linux*) O_DEFS="$O_DEFS -DLINUX" ;;
+    SCO*) O_DEFS="$O_DEFS -DPOPSCO -DAUTH_SPECIAL" 
+          LIBS="$LIBS -lsocket -lprot -lm -lx -lc -lndbm -ltinfo"
+          ;;
+    ULTRIX*) O_DEFS="$O_DEFS -DULTRIX -DSYSLOG42 -DBIND43 -DAUTH_SPECIAL"
+             LIBS="$LIBS -lauth"
+             ;;
+    *)
+        MACHINE="`uname -m 2>/dev/null`"
+        case $MACHINE in
+             DS/90*) OS_DEFS="$OS_DEFS -DUXPDS -DAUTH_SPECIAL";;
+        esac ;;
+esac
+TARGET="popper $TARGET"
+AC_SUBST(TARGET)
+
+AC_CHECK_SIZEOF(unsigned long int,4)
+
+AC_MSG_CHECKING([for sendmail program])
+if test -x /usr/sbin/sendmail
+then
+	AC_DEFINE(MAIL_COMMAND, "/usr/sbin/sendmail")
+	AC_MSG_RESULT([found at /usr/sbin/sendmail])
+elif test -x /usr/lib/sendmail 
+then
+	AC_DEFINE(MAIL_COMMAND, "/usr/lib/sendmail")
+	AC_MSG_RESULT([found at /usr/lib/sendmail])
+elif text -x /usr/ucblib/sendmail
+then
+	AC_DEFINE(MAIL_COMMAND, "/usr/ucblib/sendmail")
+	AC_MSG_RESULT([found at /usr/ucblib/sendmail])
+else
+	AC_MSG_RESULT([ERROR: The sendmail program cannot be located])
+	exit 1
+fi
+AC_MSG_CHECKING([for mail spool directory])
+if test -d /usr/mail
+then
+	AC_DEFINE(POP_MAILDIR, "/usr/mail")
+	AC_DEFINE(POP_DROP, "/usr/mail/.%s.pop")
+	AC_DEFINE(POP_TMPDROP, "/usr/mail/tmpXXXXXX")
+	AC_DEFINE(POP_TMPXMIT, "/usr/mail/xmitXXXXXX")
+	AC_MSG_RESULT([found at /usr/mail])
+elif test -d /usr/spool/mail
+then
+	AC_DEFINE(POP_MAILDIR, "/usr/spool/mail")
+	AC_DEFINE(POP_DROP, "/usr/spool/mail/.%s.pop")
+	AC_DEFINE(POP_TMPDROP, "/usr/spool/mail/tmpXXXXXX")
+	AC_DEFINE(POP_TMPXMIT, "/usr/spool/mail/xmitXXXXXX")
+	AC_MSG_RESULT([found at /usr/spool/mail])
+elif test -d /var/mail 
+then
+	AC_DEFINE(POP_MAILDIR, "/var/mail")
+	AC_DEFINE(POP_DROP, "/var/mail/.%s.pop")
+	AC_DEFINE(POP_TMPDROP, "/var/mail/tmpXXXXXX")
+	AC_DEFINE(POP_TMPXMIT, "/var/mail/xmitXXXXXX")
+	AC_MSG_RESULT([found at /var/mail])
+elif test -d /var/spool/mail
+then
+	AC_DEFINE(POP_MAILDIR, "/var/spool/mail")
+	AC_DEFINE(POP_DROP, "/var/spool/mail/.%s.pop")
+	AC_DEFINE(POP_TMPDROP, "/var/spool/mail/tmpXXXXXX")
+	AC_DEFINE(POP_TMPXMIT, "/var/spool/mail/xmitXXXXXX")
+	AC_MSG_RESULT([found at /var/spool/mail])
+else
+	AC_MSG_RESULT([ERROR: Couln't locate the mail spool])
+	exit 1
+fi
+
+dnl Checks for header files.
+AC_HEADER_STDC
+AC_HEADER_DIRENT
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS( \
+prot.h \
+fcntl.h \
+strings.h \
+sys/param.h \
+sys/file.h \
+sys/security.h \
+sys/syslog.h \
+sys/types.h \
+sys/fcntl.h \
+sys/stat.h \
+sys/unistd.h \
+sys/netinet/in.h \
+syslog.h \
+net/errno.h \
+unistd.h \
+netinet/in.h \
+maillock.h \
+ndbm.h \
+gdbm.h \
+dbm.h \
+shadow.h \
+)
+
+
+dnl Checks for libraries.
+AC_CHECK_LIB(nsl, t_accept, NETWORK_LIBS="$NETWORK_LIBS -lnsl")
+AC_CHECK_LIB(socket, socket, NETWORK_LIBS="$NETWORK_LIBS -lsocket")
+AC_CHECK_LIB(resolv, res_init, NETWORK_LIBS="$NETWORK_LIBS -lresolv")
+AC_CHECK_LIB(mail, maillock, NETWORK_LIBS="$NETWORK_LIBS -lmail"; AC_DEFINE(MAILOCK))
+AC_CHECK_LIB(krb, krb_recvauth, KERBEROS_LIBS="$KERBEROS_LIBS -lkrb")
+AC_CHECK_LIB(ndbm, dbm_open, DBM_LIBS="-lndbm")
+AC_CHECK_LIB(dbm, dbm_open, DBM_LIBS="-ldbm")
+AC_CHECK_LIB(gdbm, gdbm_open, DBM_LIBS="-lgdbm"; AC_DEFINE(GDBM))
+AC_CHECK_LIB(security, set_auth_parameters, LIBS="$LIBS -lsecurity")
+AC_CHECK_LIB(crypt, crypt, LIBS="$LIBS -lcrypt")
+AC_CHECK_LIB(shadow, pw_encrypt, LIBS="$LIBS -lshadow")
+AC_SUBST(NETWORK_LIBS)
+AC_SUBST(KERBEROS_LIBS)
+AC_SUBST(DBM_LIBS)
+AC_SUBST(LIBS)
+
+
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_TYPE_UID_T
+AC_TYPE_OFF_T
+AC_TYPE_SIZE_T
+AC_DECL_SYS_SIGLIST
+
+dnl Checks for library functions.
+AC_TYPE_SIGNAL
+AC_FUNC_VPRINTF
+AC_CHECK_FUNCS( \
+gethostname \
+getusershell \
+strdup \
+strerror \
+bcopy \
+index \
+flock  \
+set_auth_parameters \
+pw_encrypt \
+ftruncate \
+)
+AC_SUBST(O_DEFS)
+AC_SUBST(DEFS)
+AC_OUTPUT(Makefile)
