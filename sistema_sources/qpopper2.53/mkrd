@@ -1,0 +1,9 @@
+clear
+
+# Variavel de ambiente do oracle
+
+ORACLE_HOME=/oracle/app/oracle/product/8.0.5;export ORACLE_HOME
+
+# Gera o arquivo executavel "popper"
+
+make -f demo_rdbms.mk build OBJS="flock.o md5.o mktemp.o pop_apop.o pop_auth.o pop_bull.o pop_dele.o pop_dropcopy.o pop_get_command.o pop_get_subcommand.o pop_init.o pop_last.o pop_list.o pop_log.o pop_lower.o pop_msg.o pop_parse.o pop_pass.o pop_quit.o pop_rpop.o pop_rset.o pop_send.o pop_stat.o pop_uidl.o pop_updt.o pop_user.o pop_xmit.o pop_xtnd.o popper.o xtnd_xlst.o" EXE=popper

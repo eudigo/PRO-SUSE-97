@@ -1,0 +1,148 @@
+<html>
+<head>
+   <title>The Leave Mail On Server (LMOS) FAQ</title>
+   <meta name="Author" content="qpopper@qualcomm.com">
+   <meta name="KeyWords" content="POP3, qpopper, e-mail, LMOS">
+</head>
+<body>
+
+<h2>The Leave Mail On Server (LMOS) FAQ 
+<hr width="100%" ></h2>
+
+<p><b><font SIZE=+1>Q: </font>How is my mail normally delivered and downloaded?
+</b></p>
+
+<p><b><font SIZE=+1>A:</font></b> If you are using a POP3 mail program
+and server, your mail is initially delivered to the mail server. The server
+is up, running and on the Internet all the time so mail can always be delivered
+to it. Periodically your mail program (or &quot;mail client&quot;) connects
+to the mail server, downloads messages to your computer, and then removes
+those messages from the server. </p>
+
+<p><b><font SIZE=+1>Q:</font> What is &quot;leave mail on server&quot;?
+</b></p>
+
+<p><b><font SIZE=+1>A: </font></b>Most mail programs allow you skip the
+last step of deleting the mail from the server. This allows you to leave
+it on the server and pick it up from the server several times in several
+places. For example you can pick up the same email from computers at home
+and at work. Leave mail on server is often abbreviated as LMOS. </p>
+
+<p><b><font SIZE=+1>Q:</font> How do I turn on &quot;leave mail on server&quot;?
+</b></p>
+
+<p><font SIZE=+1><b>A:</b> </font>It depends on the mail program you are
+using. Most mail programs have a check box that turns this feature on.
+It is usually associated with the Options or Settings for the incoming
+mail server. Some times it's in the advanced section. Some mail programs
+just let you specify how many days to leave the mail on the server. If
+it is 0 then the feature is turned off. Be sure you turn it on for all
+mail programs on computers that you check mail from. If not, one will keep
+deleting the mail and the others will only get mail if they get it before
+the other deletes it. </p>
+
+<p><b><font SIZE=+1>Q:</font> Does this work with all mail servers? </b></p>
+
+<p><font SIZE=+1><b>A:</b> </font>No. Even though a server is a POP3 mail
+server, the system administrators may elect to remove your messages from
+the server once you download them, even if you configure your mail program
+to leave them there. They do this because they want to save disk space
+on the mail server. Some may allow you to leave mail on the server only
+in small amounts or only for a few days. </p>
+
+<p><b><font SIZE=+1>Q:</font> How to do I know if it works with my mail
+server?</b></p>
+
+<p><b><font SIZE=+1>A:</font></b> In the future, mail programs and servers
+may inform you whether or not they support leaving mail on the server.
+Today, the best thing to do is ask the manager of the mail server or try
+it yourself. If you check mail from a second computer and don't get the
+same messages you got at the first, your server probably deletes the messages
+after you download them. If this happens be sure to use only one computer
+to check mail or you will have some messages on one computer and some on
+another. </p>
+
+<p><b><font SIZE=+1>Q:</font> Does leaving mail on the server slow down
+my mail downloads?</b> </p>
+
+<p><b><font SIZE=+1>A: </font></b>It may slow them down in two ways. Some
+servers are much slower when they have to process a lot of mail. You will
+notice that it takes a lot longer for your mail program to log in to the
+server with these servers. Even with servers that don't slow down in this
+way, it will take a little longer to check your mail because the mail program
+has to transfer more message identifiers to find out which messages need
+to be downloaded. The second slow down usually isn't as noticeable. </p>
+
+<p><b><font SIZE=+1>Q:</font> For how many days should I leave the mail
+on the server? </b></p>
+
+<p><b><font SIZE=+1>A:</font></b> You should make it the longest time
+you go between mail checks at the computer you use most
+infrequently. That will guarantee you get all the messages at all
+computers. As mentioned above, leaving mail on the server can slow
+things down. The less mail you leave on the server the less it will
+slow down. </p>
+
+<p><b><font SIZE=+1>Q:</font> Do I have to read every message twice? </b></p>
+
+<p><b><font SIZE=+1>A: </font></b>Most often, you wind up reading (and
+deleting) many messages twice. This is probably the biggest problem with
+leaving mail on the server. Some mail programs help with this by allowing
+you to delete messages on the server you have read or deleted. </p>
+
+<p><b><font SIZE=+1>Q: </font>What does &quot;delete from server after
+deleted,&quot; or &quot;after trash is emptied&quot; mean?</b> </p>
+
+<p><b><font SIZE=+1>A: </font></b>When you read and delete a message some
+mail programs delete it right away, others put it in the trash. When you
+empty the trash it is removed permanently. If you check mail after you
+have emptied the trash, many mail programs will remove items emptied from
+the trash from the server as well (if they were still on the server). This
+is an excellent way to avoid reading mail twice. You check mail and download
+new messages at one location, read them, delete them and empty the trash.
+Then you check mail again. The second check removes the messages from the
+server so they won't be downloaded a second time at some other location.
+</p>
+
+<p><b><font SIZE=+1>Q:</font> Why are some messages marked as read after
+I download them?</b> </p>
+
+<p><b><font SIZE=+1>A:</font></b> Some POP3 servers mark a message as read
+after it has been download once completely. Some mail clients pay attention
+to this mark, and some don't. For the clients that do, it is usually considered
+a useful feature, however it is a non-standard feature of POP3 so not all
+servers and clients support it. </p>
+
+<p><b><font SIZE=+1>Q:</font> What about access to other mailboxes and
+mail folders that I have?</b></p>
+
+<p><b><font SIZE=+1>A: </font></b>POP3 servers only handle one
+mailbox, your inbox.  There is no way to access, or arrange access to
+other mailboxes. </p>
+
+<p><b><font SIZE=+1>Q:</font> How can I coordinate my message filters between
+my two computers?</b> </p>
+
+<p><b><font SIZE=+1>A:</font></b> Usually you have to manually keep the filter
+configuration the same on both computers. This is particularly messy for
+people that get lots of mail and use filters to manage it. In some cases
+it's possible to copy a configuration file from one computer to another,
+but this technique is rarely supported by the mail program and is usually
+at your own risk. </p>
+
+<p><b><font SIZE=+1>Q:</font> What about IMAP?</b></p>
+
+<p><b><font SIZE=+1>A: </font></b>IMAP was invented to solve the problem of
+multiple access to your email, as well as a number of other
+problems. If you use IMAP you can often avoid having to read you mail
+several times. The problem with IMAP is that it is not nearly as
+widely supported as POP because it is more complicated, and because it
+often users more server resources. ISP's and MIS departments may be
+reluctant to deploy it because of this. </p>
+
+<p><i>updated May 19, 1998</i> </p>
+
+<p></p>
+
+</body>
+</html>

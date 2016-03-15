@@ -1,0 +1,800 @@
+
+Acknowlegements:
+
+This is a joint effort between Qualcomm and the rest of the net, and
+that your comments, features, bug reports, and fixes are very much
+appreciated.
+
+If you have any questions on installation and usage of the popper
+please send your messages to qpopper@qualcomm.com. 
+
+Work on the most recent versions has been done by Praveen Yaramada.
+
+
+
+Features 
+
+	These are features which have been added to the standard Berkeley
+    popper since the '91 release.
+
+	1) Popper idle timeout (UIUC 1.831)
+	2) Bulletin board (2.0)
+	3) Statistics gathering (2.0)
+	4) xlst command (eXtended LiST) (2.0)
+	5) uidl command (Unique IDentifier List) (2.1.1)
+	6) Kerberos (2.1.2)
+	7) Shadow password (may work for you, may not) (2.1.1)
+	8) rpop (uses /etc/hosts.equiv and .rhosts.  Not recommended) (2.1.2)
+	9) Popper authorization file (2.1.2)
+	10) Sending mail via POP is now logged to mail debug (2.1.2)
+	11) MMDF handling (autodetect) (2.1.4)
+	12) Content-Length: header processing (2.1.4)
+	13) APOP authententication (2.1.4-r4)
+	14) Large site support - Server mode (2.2)
+	15) Database for bulletin tracking (2.2)
+	16) Kerberos enabled no enableable by a switch (2.2)
+	17) Configure Script to ease installation(2.4)
+	18) Root exploit via buffer over run fixes. (2.5)
+
+	This popper diverges from the POP RFC in that it acknowledges
+    the delete command when it is issued.  It also marks messages as
+    being read after they have been retrieved.  The maildrop is updated
+    reguardless of whether the popper session has been aborted or not.
+    Pop clients which do not flush messages from the IO buffers before
+    issuing a delete may lose messages.  Eudora does flush its buffers
+    before issuing the popper delete command.  This feature is very good
+    when a dialup session is terminated due to a bad phone connection
+    where getting dropped is a common occurance.
+
+	This popper also diverges in that the timeout can be set to less
+    than 10 minutes.  Practically I have found a timeout of 30 seconds
+    to be adequate for most circumstances.  It needs to be a little
+    greater for 2400baud slip connections.  I have defaulted this code
+    to 2 minutes.  The RFC specifies 10 minutes.  The timer is used to
+    cleanup an aborted connection.  A short timeout allows for the user
+    to reconnect without getting that pesky little error which states
+    that the pop drop file is already locked.  Otherwise the admin will
+    get a phone call, walk the user through the connection, and find
+    everything works.  Frustrating for both admin and user.  On the minus
+    side, if the client takes to long to respond, the connection will be
+    dropped prematurely.  Time timeout choice is yours.
+
+Future enhancments - In no particular order
+
+	1) Add MSG facility.  Similar to the bulletin board.
+
+	2) Add the "AUTH" pop command to allow for multiple authorization
+	   mechanisms.
+
+	3) Add Kerberos V support (GSS?).
+
+Release Notes
+
+2.53 Fixes compile problems with Enhanced security on HPUX10 & DGUX4.0b-d.
+     Also fixes general compilation problems with SCO & Ultrix.
+
+2.52 Fixes compile problems with GDBM and bulletins.
+     Fixes a problem compiling with strerror() on some UNIXs
+     Updated license agreement allow redistribution
+
+2.51 Bug fix with Bulletins with DB. New License. (not release)
+
+2.5  Root exploit via buffer over-runs are fixed. The four were:
+     1. long unknown commands
+     2. long x-uidl headers in mailboxes
+     3. long From: header fields in mailboxes
+     4. Certain command input sent directly to syslog
+
+2.41 Rectified the problem with X-UIDL string to check the validity of the 
+	 string. 
+
+2.4
+	Added configure script. Running configure script generates the Makefile
+	for the platform. 
+	Added timeout for the the xtnd xmit command. Now the information for 
+	xtnd xmit command is read from the same read statement as any other 
+	command. 
+2.3
+	Fixed the bug with NOUPDATEONABORT. Now if the connection aborts with
+	the client the messages in temporary file are copied back to original
+	mail drop and the temporary file is deleted.
+
+	Added the macro GDBM, if defined will make use of GNU's DBM library.
+
+	Fixed the bug in pop_dropcopy.c, where the process changes the UID and
+	GID to that of the user's, but leaves the Supplementary group IDs.
+
+	Strictly enforcing BINMAIL_IS_SETGID for IRIX.
+
+2.2
+	Added SERVER_MODE.  This feature should only be used on systems
+    that do not allow users to use access their mailspools directly.
+
+	Added several mail spool access methods.  If your site is large
+    and you wish to improve mail spool file access you might want to use
+    these.  They require modification to the local mail delivery program.
+    One method hashes the username into one of 26 possible directories,
+    the other method creates a hierarchy off the name such as /m/ma/mark.
+
+	Added date/time and PID to tracefile lines.
+
+	Fixed bug in message size reporting.
+
+	Added a flag to force RFC 1725 style update on aborts.
+
+	Added a flag to not change Status headers.
+
+	Change the way temporary file ownership/permissions verification
+    was done.
+
+	Added a fix for nulls left at the beginning of mail spools.
+
+	Change From separator recognition to a simpler (?) macro from Mark
+    Crispin's c-client.
+
+	Added support to track bulletins in a single database, no user
+    home directories required.
+
+	Added checking for valid shells to enable admins to lockout users. 
+
+	Rewrote fgets to fix a problem on some operating systems.  If a
+    packet of "dele 1<cr><lf>dele 2<cr><lf>..." was sent, only the first
+    would be read by the popper.
+
+	LARGESITE no longer available.  Now if you want verbose logging use
+    DEBUG and enable messages with -b at the command line
+
+	When Kerberos support is compiled it, it must be activated with
+    the -k switch.  For those who insisted on one popper for both Kerberos
+    and non kerberos accessing.
+
+2.1.4-r4 - NOT Released
+	Changed how the popdrop file was being created and checked.  If
+    the file existed it was possible to create one owned by someone else
+    and snoop mail.
+
+	Removed O_APPEND from the open call of the the popdrop.  Wasn't
+    needed.
+
+	Leftover code in pop_pass for SCO caused some headaches.
+
+	Pop_pass now checks both regular and extended crypt calls for
+    systems that support both.
+
+	Added APOP option.  Several users sent in code but I used the
+    submission from Ian Donaldson (iand@labtam.oz.au).  This code is
+    derived from the MH code.  I added a -delete option to popauth so
+    that a user entry could be removed.  I also rewrote some of it to
+    allow for longer passwords.  The GNU getpass() routine was added
+    which is enabled by a compiler flag.  Getline was not available on
+    Solaris 2.3 so a flag NO_GETLINE was also added.  The password
+    database is now permuted so that greps don't find cleartext words.
+
+    NOTE: This verion of the popauth database is not compatible with
+	  earlier beta versions.
+
+	UID bug fixed.  Only a "From:" header was searched for before
+    X-UIDL insertion.  Now "To:" is checked for with a fallback of
+    inserting UID before the Status header.
+
+	Changed the location and method of creating UID so that it is
+    now the first header after the message separator.
+
+	UIDs are now created by pushing headers through MD5.  This makes
+    UIDs RFC complient to be consistant between sessions even if the popper
+    aborts.
+
+	Somewhere a bug was introduced which caused the copyback (update)
+    to fail if the filesystem filled or the user was overquota.  Fixed.
+
+	Added support for NIS+.  Your mileage may vary.  Code provided by
+    Andy Smith (abs@maunsell.co.uk).
+
+	Changed where CONTENT_LENGTH was defined, now it must be added to
+    the build line.
+
+	Fixed problems with building Linux, BSDi 2.x, and FreeBSD systems.
+
+	Fixed a bug in pop_msg and pop_log.  Va_end(ap) was run prematurely.
+
+	RSET didn't reset status fields correctly.  Fixed.
+
+	Fixed a problem with From line separator recognition.  A blank <addr>
+    would cause the separator to be missed.
+
+	X.400 addresses failed to parse correctly if they had imbedded "
+    characters.  Fixed.
+
+2.1.4-r3
+	Fixed a bug in UID caching.  Some messages that appeared to have
+    valid from lines but no received lines caused the UIDL header to not
+    be initialized and the cached value was undefined.  The popper would
+    crash if debugging was turned on or the UIDL command was issued (since
+    2.1.4-r2). 
+
+	Fixed sequence problem in UIDL caching.  The cache was one more
+    than the actual message sequence.  This caused messages to be retrieved
+    twice.
+
+	Changed the way UIDL is cached and handled to facilitate moving
+    of the header for old UID enabled qpopper and reduce the number of
+    string compares.  UILD is not inserted before the From: header.  This
+    feature creates a time where if the popper/system crash, the cached
+    (newly created) UID information will be lost.  UIDL headers which
+    already exist will be retained.
+
+	Changed the internal calculation of message size to facilitate the
+    Content-Length: header.  Implemented Content-length processing.
+
+	Added a define for (off_t), (gid_t), (pid_t), (uid_t), and (gid_t)
+    types.  Some OS's are not compiling/running well without them and most
+    support the types.  The default is to use these defines.  Change popper.h
+    if your OS does not support these types.
+
+	Move the set_auth_parameters() call ahead of the umask() system
+    call and add the parameters argc, and argv.
+
+	Swapped order of seuid & setgid so that the setgid call was first.
+    Setgid would fail after setuid call.
+
+	Fixed a bug in the last command.  Deleted messages were included
+    as the last message retrieved.
+
+	Changed the check of the From line from a dynamic setting to a
+    compiler define.  This was done to fix a bug in the way bulletins
+    are validated.  An improper From header was accepted causing subsequent
+    runs of the popper to concatenate the previous message with the bulletin.
+
+	Fixed MMDF handling.  I implemented it wrong the first time :-(
+
+	Added __RES checks to pop_init.
+
+	Added support for Sequent (PTX) (w/sockets).  This isn't working
+    very well yet.  Help requested.
+	
+	Added support for maildrops existing in users home directories
+    (needed for supporting PTX and MMDF maildrops).
+
+	Changed strcpy to strncpy in pop_user.c.
+
+	Fixed more compile problems with OSF/1, AIX, A/UX, BSDi 2.0, IRIX,
+    and a few other operating systems.
+
+	Changed the process wait code in pop_xmit to use pidwait exclusively.
+    Seems to work on most systems.
+
+2.1.4-r2
+	Fixed numerous (more :-[) compilation problems.
+
+	Added UIDL caching in the message structure.  Scanning the file
+    took much to long.
+
+	SunOS 4.1.x does not use 'x' when C2 shadow passwords are enabled.
+    The check was removed and was reported to work at several sites.
+
+	Fixed an unreported bug in grabbing info on leftover .user.pop
+    files.  It use to create one large message :-(
+					(Mark Erikson 4/95)
+
+2.1.4-r1
+	Fixed numerous compilation problems with AIX, OSF/1, SCO, AUX.
+
+	Updated the INSTALL doc.
+
+2.1.4-b3
+	Fixed an error in bulletins.  UID was not implemented corectly :-(
+
+2.1.4-b2
+	Fixed compilation errors for the SCO and OSF/1 ports.
+
+	Added password expiration for Linux.  Now Linux, Solaris, and
+    UnixWare check for expired passwords.
+
+	Changed OSF/1 ifdefs in popper.c.  If you have enhance security
+    then you will want to define OSF1 and AUTH.  AUTH enables shadow
+    password checking.  Defining OSF1 and AUTH will enable the call to
+    set_auth_parameters().  If you do not set AUTH, then standard password
+    checking is done.
+
+	Fixed a bug where a corrupted mail spool can cause popper to
+    expand the file.  If there is more than one "From " line in the
+    header, the popper got confused.  Now, the second From is used as
+    the start of the message and the first part of the header is tossed.
+
+	Fixed a bug in UID handling for bulletins.
+
+	Rewrote password routines to be more consistant with each other.
+
+2.1.4-b1
+	Added changes for a Unixware port.
+
+	Added changes for an OSF/1 port.
+
+	Added changes for a Linux port.
+
+	Fixed a file locking problem.  When transfering a mail spool file
+    to the temp file, a reopen was issued which removed the lock from the
+    original file.
+
+	Zero length files are now dealt with more efficiently.
+
+	Added a minimum bulletin count for new users.  The value will be
+    subtracted from the max bulletin value.  Pretty much guarenteed to
+    receive at least one message, more if bulletins are in strict sequence.
+
+	Solaris2.x handling of expired passwords.  Fixed NIS handling (I
+    really thought it was done correctly.  Sigh).  If you would like other
+    OSs to handle the expiration fields, please send me your code fragments.
+    I don't have the appropriate systems to do the ports myself.
+
+	Added NIS fixes for other OS's.
+
+	Fixed gethostbyname bug where the static area was being overwritten.
+
+	Added MMDF handling.  As far as I know, it only requires placing a
+    special string before and after each message.  The default character
+    string that this popper recognizes is ^A (<CTL>-A).  Popper.h needs to
+    be modified if your string is different.  If there is something else
+    that needs to be done in handling MMDF files please let me know.
+
+	Fixed total mail drop size report.
+
+	Modified X-UIDL header insertion so that it doesn't conflict with
+    other mailers.  The header is now inserted after the last Received:
+    header.  This will cause problems with earlier versions of qpopper
+    since it does not check for other X-UIDL headers.  Clients already
+    using qpopper and UID will have all email redelivered once.
+
+	Modified popper so that if it receives a bad username/password
+    it exits after a 15sec timeout.
+
+2.1.3-r5
+	Forgot to put a Status header out during a retrieve.
+
+	Added a fix to pop bulletin code to ensure a valid value exists
+    in the .pop_bull file when the filesystem fills up.
+					(Ray Davison ray@sfu.ca)
+					(Mark Erikson  12/94)
+
+2.1.3-r4
+	Fixed a problem with UID and Unix mailers.  The UIDL header was
+    being appended to the header (after the Status header).  Some mail
+    programs didn't like this and removed the UIDL header, which caused
+    Leave Mail On Server to break for Eudora 2.1.
+
+	Fixed a bug in error handling of the temporary mail file.  If
+    new messages were appended to the temp file but an error occured
+    during addition of bulletins, the temp mail file was truncated back
+    to the original length before new messages were added causing messages
+    to get tossed.			(Ray Davison ray@sfu.ca)
+
+2.1.3-r3
+	Finally got the bugs out of left over .user.pop files and the
+    bulletins.
+
+	Added the last command just because I was in there and it was
+    easy to do.
+					(Mark Erikson 11/94)
+
+2.1.3-r2
+	Almost fixed retrival of .user.pop files.  Now it works much better.
+
+	Fixed the random addition of messages getting appended to the
+    maildrop.
+					(Mark Erikson 11/94)
+
+2.1.3-r1
+	Fixed another nasty bug.  If the user had a .user.pop file then
+    it got ignored and removed.  Since this popper cleans up after itself
+    so well, this condition rarely, if ever, occured.
+
+	Fixed the bulletin board feature.  In combining the info gathering
+    pass with the mailbox copy pass, the info was never gathered on the
+    added bulletins.
+
+	Fixed a bug where copying the pop drop back to the mail spool file
+    did not always detect errors.  Messages could be lost.
+
+	Added a suggested fix for a problem with resetting resolver options?
+    Something about crypt using gethostbyname without fully qualified domain
+    names?  I've never heard of this problem but I put a conditional compile
+    in just in case.
+
+	Fixed a typo in pop_passwd for running shadow passwords.
+
+	Made /usr/mail the default spool directory for IRIX.
+
+	Reported to AIX and Ultrix.  Still have to report to OSF1.
+					(Mark Erikson  11/94)
+
+2.1.2-r4
+	Fixed a nasty bug where copying the .user.pop file back to the
+    maildrop could cause all the messages to be removed.
+					(Mark Erikson 10/94)
+
+2.1.2-r3
+	Fixed a bug introduced in logging during init.  Caused code to
+    coredump on startup.
+					(Mark Erikson  10/94)
+
+2.1.2-r2
+	Fixed a make problem for IRIX.  Required a -cckr option (what ever
+    that does).
+
+	Added user information in addition to the system info already
+
+	Fixed a bug in pop_parse.  It left cr/lf chars after the password
+    string.  Removed, now works for Sunos.
+
+	Changed the service name for Kerberos from pop to rcmd.  This makes
+    administering srvtab files easier by not requiring them to be changed
+    in order to add the popper.  (requested by Paul Pomes p-pomes@uiuc.edu)
+					(Mark Erikson  10/94)
+
+2.1.2-r1
+	Added Kerberos IV option to popper.  Add -DKERBEROS to your make.OS
+    file if you want to build a Kerberos only popper.  Mods supplied by
+    Christopher Davis ckd@loiosh.kei.com.
+
+	Added rpop.  This feature uses the host.equiv and .rhosts files
+    to validate a user.  This opens up a security hole since it is quite
+    easy to pose as another user and PC.  I do not recommend using this
+    feature if you have security concerns.  Enabled by defining -DRPOP
+    in your make.OS file.  Mods supplied by spike@world.std.com.
+
+	Fixed a bug that does not allow spaces in the middle or end of
+    a password.  Mods supplied by spike@world.std.com.
+    
+	Removed HPUX make flag.  Added a bug in 2.1.1 for HPUX, removed
+    the bug and simply compiled a sysv version.  Seems to work well.
+	
+	Added authfile validation.  This file contains a list of users
+    (one each line) which have access to popper.  Enabled by defining
+    AUTHFILE to an authorization file in your make.OS file
+    (eg: -DAUTHFILE=\"/etc/authfile\").  Mods supplied by 
+    spike@world.std.com.
+
+	Implemented shadow passwords for SunOS4.x.  You must define
+    AUTH and SUNOS4 to use this feature.  You must also make sure you
+    have loaded C2 security.  Mods supplied by spike@world.std.com.
+
+	Added mkstemp (supplied by Christopoer Davis ckd@loiosh.kei.com)
+    to create temporary files to get around a race condition which allowed
+    users to break root.  Bug pointed out by bugtraq mailing list.
+
+	Added logging to mail debug of pop xtnd xmit.  This is to allow
+    easier tracking of messages sent via popper.  Before, a message just
+    showed up in the log but no account was made from where it came.
+
+	Fixed a bug which allowed copying of the mail spool file to a
+    temporary location.  The copy did not check if there was an error
+    (ie: File system full) so the maildrop could be lost.  Pretty nasty.
+    Bug discoverd by Douglas Gatchell dgg@lanl.gov.
+					(Mark Erikson  9/94)
+2.1.1
+	Ported popper to OSF, IRIX, BSDi, SCO, Ultrix, AU/X, AIX, SunOS4,
+    Solaris2, HPUX, Pyramid, generic SVR4, and BSD OS's.  Created a Makefile
+    to help the sysadmins generate the correct popper with little fuss.
+
+	Added SIGPIP signal.  When the socket was closed but the popper
+    continued to send data, it core dumped.  This signal catches this.
+
+	Added reset of signals to the signal handler.  This fixes the
+    SVR4 bug and does not harm BSD systems.
+
+	Modified the popper struct to fix a system dependant parameter
+    for hostname length.  Several revisions of this code exist.  This
+    problem caused interesting mailbox names to be referenced.
+
+	Picked up a flock code which ifdefs to the correct values depending
+    on your OS.  Does the right thing for BSD and SYSV systems.  Unknown
+    author.
+
+	Added uidl command.  This feature gives each message a unique
+    identifier to help facilitate sharing of mail between several clients.
+    In addition to adding this command the copying and information gathering
+    of the maildrop were merged into a single pass which improved performance
+    when maildrops get large.  (Mark Erikson  8/94)
+
+2.0
+	Properly clean up on abnormal termination and rewrite the mail
+    drop file. The QC3 mods to catch SIGHUP signals and time out reads
+    were not enough. You also have to catch SIGPIPE signals to avoid
+    being killed when the client connection is aborted while the server
+    is writing (e.g., if you cancel downloading a large message in Eudora,
+    a common operation).
+
+	Fixed some bad log messages.
+
+	Added a mod from Don Lewis <gdonl@gv.ssi1.com>. Under SunOS 4.1.3,
+    and possibly other systems, the check for null passwords doesn't work.
+    QC3 checked only for a null password pointer in the struct returned by
+    getpwnam. You also have to check for an empty string returned by
+    getpwnam.
+
+	Added a -s command line option to generate statistics messages in
+    the log. One message is issued for each session:
+
+	Stats: username aaa bbb ccc ddd
+
+	where:
+
+	aaa = number of messages deleted. 
+	bbb = number of bytes deleted. 
+	ccc = number of messages left on server. 
+	ddd = number of bytes left on server.
+
+	Added a "POP bulletin" feature. This feature gives system
+    administrators a way to send important announcements to all POP users
+    without having to do sendmail mass mailings.
+
+	The feature is enabled via the -b command line option. This option
+    is followed by the path of the bulletin directory.
+
+	The bulletin directory contains one file per bulletin. Each file
+    contains a complete single mail message with header and body in
+    mailbox format. The first line of each such bulletin must be a "From "
+    line. The easiest way for sysadmins to create such bulletins is to
+    mail themselves a copy of the bulletin (using the account to which
+    they want replies to be sent), then use their mail program to save the
+    message to a file in the bulletin directory in mailbox format. The
+    bulletin directory must be world readable.
+
+	The name of each bulletin file begins with the bulletin number,
+    and may optionally continue with any other characters. E.g., the file
+    name of bulletin number 23 might be:
+
+        23.pophost_down_sunday
+
+	Popper creates a file named ".popbull" in the home directory of
+    each user. This file contains a single line recording the highest
+    numbered bulletin received by the user.
+
+	Bulletins are processed by popper in pop_dropcopy.c, immediately
+    after copying the mail drop to the temporary mail drop, but before
+    building the temporary mail drop index. All bulletins which this user
+    has not received previously are appended to the temporary mail drop
+    file.
+
+	When bulletins are copied to the temporary mail drop file, all
+    "To" header lines are replaced by "To: username@myhost". Any "Status:"
+    header lines are deleted. Otherwise, the bulletins are copied as is.
+
+	When a new user checks for mail the first time, popper creates
+    the .popbull file in the user's home directory and seeds it with the
+    current maximum bulletin number. Thus new users do not get old
+    bulletins.
+
+	All errors are logged and cause the bulletins to not be copied.
+    E.g., if the bulletin directory cannot be located, or the .popbull
+    file doesn't contain a number, or a bulletin does not begin with a
+    "From " line, or a bulletin name does not begin with a number, etc.
+
+	I use bulletin numbers instead of last mod date/times because I
+    want to make it possible for a sysadmin to, for example, fix a
+    spelling error in a bulletin without having to force all pop users
+    to receive a new copy of the bulletin.
+
+	Changed the default timeout from 30 to 300 seconds (5 minutes).
+    This value should be reasonably "safe" for even slow dialup connections.
+
+	Included a mod from Steve Dorner to implement a new "XTND XLST"
+    command.
+
+	Updated the manpage.
+
+	Changed the version number to just plain version 2.0.
+
+	John Norstad of Northwestern University (j-norstad@nwu.edu) (6/94).
+
+1.831-2Q3
+	This version fixes a bug in the cleanup code.  If an error occurs
+    during the login phase then a core file is dumped.  Annoying but not
+    serious since the .user.pop file is unlocked and the popper deals with
+    this old file as a matter of course.
+						   (Mark Erikson 4/94)
+
+1.831-2Q2
+	Add HPUX file locking calls and a shorter timeout.  The timeout
+    was modified to be configureable at the command line.
+    
+	The timer starts after a command or message has been delivered and
+    the popper is expecing input from the client.  If the response takes
+    longer than the timeout then the popper closes down the socket and
+    cleans up the files.  A value of 120 seconds seems to be pretty
+    for even 1200baud slip links.  Your mileage may vary.
+						    (Mark Erikson 2/94)
+
+1.831-2Q1
+    Write out changes to the temporary pop log on an abort (SIGHUP).
+    NOTE: This diverts from the Popper RFC but it made our users life much
+    easier for dialup users.
+    
+	The next feature is only useful with Eudora's "Leave mail on
+    Server" switch set (or any other client that leaves mail on the
+    server).  Basically, if a user has read 5 out of 10 messages and
+    the session dies, the first 5 messages are marked as read.  If the
+    5th message is good but you only receive part of it then it will
+    be skipped (bad).  But if the message was bad and caused the mail
+    client to abort then you can continue to receive the rest of your
+    mail (good).  There is no switch to disable this feature.
+						    (Keith Pilotti 1/94)
+
+1.831uiuc2
+	Unlinking temporary drop file (safely). (Steve Dorner, 12/12/91)
+
+1.831uiuc1
+	Make sure user's shell is in /etc/shells. (Paul Pomes)
+	Timeout added. (Steve Dorner, 12/5/91)
+
+1.83    Make sure that everything we do as root is non-destructive.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.831beta
+	is no longer beta	30 July 91
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.831beta.tar.Z	03 April 91
+	Changed mkstemp to mktemp for Ultrix.  Sigh.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.83beta.tar.Z	02 April 91
+	This version makes certain that while running as root we do nothing
+	at all destructive.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.82
+	Make the /usr/spool/mail/.userid.pop file owned by the user rather
+	than owned by root.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.82beta.tar.Z	27 March 91
+	This version fixes problems on Encore MultiMax and some Sun releases
+	which wouldn't allow a user to ftruncate() a file from an open
+	file descripter unless the user owns the file.  Now the user
+	owns the /usr/spool/mail/.userid.pop file.  Thanks to Ben Levy
+	of FTP Software and Henry Holtzman of Apple.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.81
+	There were two versions of 1.7 floating around, 1.7b4 and 1.7b5.
+	The difference is that 1.7b5 attempted to save disk space on 
+	/usr/spool/mail by deleting the users permanent maildrop after
+	making the temporary copy.  Unfortunately, if compiled with 
+	-DDEBUG, this version could easily wipe out a users' mail file.
+	This is now fixed.
+
+	This version also fixes a security hole for systems that have
+	/usr/spool/mail writeable by all users.
+
+	With this version we go to all new SCCS IDs for all files.  This
+	is unfortunate, and we hope it is not too much of a problem.
+
+	Thanks to Steve Dorner of UIUC for pointing out the major problem.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.81beta.tar.Z	20 March 91
+	This version of popper is supposed to fix three problems reported
+	with various versions of popper (all called 1.7 or 1.7something).
+
+	1)  Dropped network connections meant lost mail files.  Some 1.7
+	    versions also risked corrupting mail files.
+
+	2)  Some versions of 1.7 created temporary drop files with world
+	    read and write permissions.
+
+	3)  Some versions of 1.7 were not careful about opening the temporary
+	    drop file.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.7     Extensive re-write of the maildrop processing code contributed by 
+        Viktor Dukhovni <viktor@math.princeton.edu> that greatly reduces the
+        possibility that the maildrop can be corrupted as the result of
+        simultaneous access by two or more processes.
+
+        Added "pop_dropcopy" module to create a temporary maildrop from
+        the existing, standard maildrop as root before the setuid and 
+        setgid for the user is done.  This allows the temporary maildrop
+        to be created in a mail spool area that is not world read-writable.
+
+        This version does *not* send the sendmail "From " delimiter line
+        in response to a TOP or RETR command.
+
+        Encased all debugging code in #ifdef DEBUG constructs.  This code can
+        be included by specifying the DEGUG compiler flag.  Note:  You still
+        need to use the -d or -t option to obtain debugging output.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.6     Corrects a bug that causes the server to crash on SunOS
+        4.0 systems.
+
+        Uses varargs and vsprintf (if available) in pop_log and
+        pop_msg.  This is enabled by the "HAVE_VSPRINTF"
+        compiler flag.
+
+        For systems with BSD 4.3 bind, performs a cannonical
+        name lookup and searches the returned address(es) for
+        the client's address, logging a warning message if it
+        is not located.  This is enabled by the "BIND43"
+        comiler flag.
+
+        Removed all the includes from popper.h and distributed
+        them throughout the porgrams files, as needed.
+
+        Reformatted the source to convert tabs to spaces and
+        shorten lines for display on 80-column terminals.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.5     Creates the temporary maildrop with mode "600" and
+        immediately unlinks it.
+
+        Uses client's IP address in lieu of a canonical name if
+        the latter cannot be obtained.
+
+        Added "-t <file-name>" option.  The presence of this
+        option causes debugging output to be placed in the file
+        "file-name" using fprintf instead of the system log
+        file using syslog.
+
+        Corrected maildrop parsing problem.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.4     Copies user's mail into a temporary maildrop on which
+        all subsequent activity is performed.
+
+        Added "pop_log" function and replaced "syslog" calls
+        throughout the code with it.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.3     Corrected updating of Status: header line.
+
+        Added strncasecmp for systems that do not have one.
+        Used strncasecmp in all appropriate places.  This is
+        enabled by the STRNCASECMP compiler flag.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.2     Support for version 4.2 syslogging added.  This is
+        enabled by the SYSLOG42 compiler flag.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.1     Several bugs fixed.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+1.0     Original version.
+				(Cliff Frost poptest@nettlesome.berkeley.edu)
+
+
+Limitations
+
++   The POP server copies the user's entire maildrop to /tmp and
+    then operates on that copy.  If the maildrop is particularly
+    large, or inadequate space is available in /tmp, then the
+    server will refuse to continue and terminate the connection.
+
+
+Credits
+
+
+Original Writers : Edward Moy, Austin Shelton
+
+Contributions and Changes : 
+Robert Campbell (U.C. Berkeley), Viktor Dukhovni (Princeton University),
+Austin Shelton (U.C. Berkeley), Steve Dorner(UIUC), Paul Pomes(UIUC), 
+Keith Pilotti (QUALCOMM), Mark Erikson(QUALCOMM), John Norstand (QUALCOMM),
+Laurence Lundblade(QUALCOMM), Praveen Yaramada (QUALCOMM)
+
+
+
+Footnotes
+
+[1] Copyright (c) 1990 Regents of the University of California.
+    All rights reserved.  The Berkeley software License Agreement
+    specifies the terms and conditions for redistribution.  Unix is
+    a registered trademark of AT&T corporation.  HyperCard and
+    Macintosh are registered trademarks of Apple Corporation.
+
+[2] M. Rose, Post Office Protocol - Version 3.  RFC  1081, NIC, 
+    November 1988.
+
+[3] M. Rose, Post Office Protocol - Version 3 Extended Service 
+    Offerings.  RFC 1082, NIC, November 1988.

@@ -1,0 +1,631 @@
+INSTALL 
+
+Last updated: 07/14/98
+
+Refer to http://www.eudora.com/freeware for new releases of 
+POP3 server.
+
+This document is updated between releases.  So please read 
+it each time you download a new version of Qpopper.
+
+[ Warning : Do not use qpopper over NFS. ]
+
+For release notes please refer doc/Release.Notes
+
+Send your patches and bug reports to qpopper@qualcomm.com.
+
+Please read the License file for license information.
+
+SECTIONS:
+	0. BUFFER OVERRUN IN QPOPPER
+	1. QUICKNOTES
+	2. RUN-TIME OPTIONS (COMMAND LINE OPTIONS).
+	3. APOP
+	4. BULLETINS
+	5. SERVER MODE
+	6. SHADOW PASSWORDS / ENHANCED SECURITY SYSTEMS.
+	7. COMPILE TIME MACROS(for other options)
+	NOTES
+	DEBUGGING
+
+0.0 BUFFER OVERRUN IN QPOPPER:
+------------------------------
+Some versions of qpopper are prone to buffer overrun. Remote 
+users can exploit this bug and obtain root access. If you are 
+using qpopper2.41 or older please upgrade or patch it with new 
+versions.
+
+1.0 QUICKNOTES:
+---------------
+To compile the qpopper, change the directory to where the 
+sources of qpopper are located and run the following 
+commands. 
+
+	./configure
+	make
+
+Running the configure script builds the Makefile for your 
+operating system. Using the default settings, the Makefile 
+can run correctly for the following operating Systems: 
+Solaris, HPUX, IRIX, SCO, SunOS4.x, Linux, BSDI, FreeBSD 
+and Digital OSF1.
+
+Running make builds the popper for your Operating system. 
+Although there is no required location, many sysadmins prefer 
+/usr/local/lib.
+
+Modify your /etc/inetd.conf file to contain the line below. 
+You may have to modify it to support your version of the file. 
+pop3 stream tcp nowait root /usr/local/lib/popper popper -s
+
+If your OS does not have an inetd.conf file, then it uses 
+the config file /etc/servers.  Use the following line:
+pop3	tcp	/usr/local/etc/qpopper	qpopper -s
+
+For all OS versions you must modify, your /etc/services file 
+needs to include the following line:
+pop3         110/tcp                # Post Office
+
+Restart inetd with a kill -HUP inetdpid (some systems can 
+use inetd -c).
+    
+If you have modified these files for AIX, the commands 
+displayed below may work for you.  First you need to import 
+the new inetd.conf file, and then you need to re-init inetd.  
+Use the following commands:
+	    inet imp
+	    refresh -s inetd
+
+If you are running NIS, please don't forget to update your 
+maps.
+
+2.0 RUN-TIME OPTIONS (COMMAND LINE OPTIONS):
+--------------------------------------------
+The following are command line options you may want to use.
+
+popper [-d] [-k] [-s] [-t trace-file] [-T timeout] [-b bulldir] 
+
+
+-b bulldir	- This is the location of the bulletin 
+               directory.  The command line will override the 
+               compiled value if it is defined.   A bulletin 
+               database can be used to track the bulletins 
+               instead of the users home directory. 
+               This feature is enabled with -DBULLDB during 
+               compilation. -DBULLDB requires two blank files 
+               including the name of BULLDIR/bulldb.pag and 
+               the creation of BULLDIR/bulldb.dir.
+
+-d	       - Enables the debug logging if compiled.
+
+-k	       - If compiled with -DKERBEROS, this flag 
+               enables Kerberos support only. In qpopper, 
+               enter this command at the appropriate kpop port 
+               in inetd.
+
+-s	       - This enables statistics logging.  
+
+-t logfile     - If debug and trace files are defined, output 
+               from logging goes to the trace file instead of 
+               syslog.
+
+-T timeout     - You can change the compiled default for read 
+               timeouts. This value causes the qpopper to 
+               terminate the connection with the client and 
+               move the messages back to the user's maildrop 
+               The RFC states that this timeout should be 600 
+               seconds (10 minutes). However, ideal settings 
+               are between 30 and 120 second.
+
+
+3.0 APOP:
+---------
+APOP is an alternate authentication method.  This is a secure
+method to authenticate without passing the password in 
+cleartext over the wire. Building this support to the server
+would require DBM or GDBM libraries to exist on the system. 
+GDBM is a GNU's version of dbm which can be obtained from any
+of GNU's distribution sites.
+
+To setup APOP - 
+ *  Create a user account(for eg:"pop") that would be used for 
+   administering the APOP users. 
+ *  Choose a location where APOP would place the authentication 
+   files (Make sure that would be read/write accessible only to 
+   the administering accoung("pop"). Typically "/etc/pop.auth".
+ *  Run configure script with the options --enable-apop and
+   --with-popuid.
+
+ eg: ./configure --enable-apop=/etc/pop.auth --with-popuid=pop
+
+   The first definition is the location of the authentication 
+   files; the second specifies the administering account that 
+   will own the authentication database.
+ *  Run the make, and this should produce executables "popauth"
+   and "popper".
+ *  Move the executables to a public location.
+ *  Change the owner on popauth to administering account("pop")
+   and set SUID.
+
+ eg: chown pop popauth
+     chmod u+s popauth
+
+ *  Initialize the authentication database files by running 
+   following command :
+
+   popauth -init
+
+ *  New users can be added by root or the administering ("pop")
+   user with the following command:
+
+	    popauth -user <user>
+
+   Or removed with the following command:
+
+	    popauth -delete <user>
+
+   Any other user can add themselves or change their password 
+   with the following command: 
+
+	    popauth
+
+
+4.0 BULLETINS:
+--------------
+Bulletins can be used to send the messages to all POP users.
+Bulletins are placed as plain text files in a specified format 
+under a directory known to the server.
+
+4.1) To Enable Bulletins :
+ *  Choose the directory where the bulletins would reside.
+   Typically "/var/spool/bulls". The directory should be 
+   entereable with user privileges.
+ *  Run the configure script with option --enable-bulletins.
+
+   eg: ./configure --enable-bulletins=/var/spool/bulls
+
+ *  Running make should produce the popper executable.
+ *  Use the command line option -b for popper to override the 
+   compiled value of bulletin directory.
+
+4.2) Writing Bulletins :
+     Bulletins have to be placed as files in the BULLDIR 
+    and the directory should be entereable and the files 
+    inside readable with user privileges.
+
+     Readable file names can be choosen for bulletins 
+    using the number.string form, for example, 
+    00001.Bulletin_one, 00002.2hr_Downtime_2-4-95.
+    Give each bulletin a unique and an ascending order number.
+    The number portion of filename should be 1 + the largest
+    bulletin number in directory. [Warning : Recycling the 
+    bulletin numbers is not supported yet.]
+
+     Contents in bulletin should be in same format as 
+    messages in mail spool. For example : 
+
+    -------------- start message -------------
+    From qpop Wed Nov  9 13:31:08 1998
+    Date: Wed, 9 Nov 1998 13:31:07 -0800 (PST)
+    From: "POP Administrator" <qpopper@qualcomm.com>
+    Subject: Example bulletin
+
+    This is an example bulletin to demonstrate the format
+    in which bulletins have to be placed.  This message 
+    will be appended to mailspool when the user checks 
+    his/her mail.
+
+    If you remove this file later on, it wouldn't be seen by
+    users who haven't checked their mail since you placed this
+    bulletin.
+
+    Try to preserve the rfc822 header format, esecially date
+    format. Failing which clients may not parse information 
+    in headers correctly. 
+    Allow a blank line between headers and message body.
+    --------------- end message --------------
+
+     Do not include the --- start message --- and 
+    --- end message --- lines to your bulletin.
+
+4.3) How does bulletins work :
+    During POP session after the authentication by user, server
+    copies the bulletins placed in the BULLDIR in to the users
+    message spool. Server would figure out the last bulletin 
+    read by user by placing under users home directory ~/.popbull
+    the last bulletin number read. Any bulletin in the BULLDIR
+    with number greater than the one in ~/.popbull would be copied
+    to users message spool.
+
+
+5.0 SERVER MODE :
+-----------------
+
+5.1) To Enable Server mode :
+  * Run the configure script with option --enable-servermode.
+   and the rest is same.
+
+5.2) When to use server mode : 
+    This mode of operation is specifically designed to work with 
+   POP accounts only. Use this mode for a better throughput from
+   server when there is huge user base to the server. Read all the
+   sections about server mode before enabling.
+
+5.3) Bottleneck in normal mode :
+    In the default mode server after authentication copies the 
+   mail in users message spool to a temporary file(.user.pop).
+   Once user terminates the session the undeleted messages are
+   moved back to the message spool. When the users download all
+   the messages and delete them from the server (Which is commonly
+   done by most sites and clients.) on every session, server need
+   not have to make a copy of the message spool to temporary file.
+   The same is true for users who leave all their mail on server.
+   and do occasional mailchecks. For large pop servers, the extra 
+   IO processing can be a performance problem. SERVER-MODE is 
+   created to improve the performance of the mentioned users.
+
+5.4) Server Mode Operation :
+    Enabling SERVER_MODE assumes that the other programs that write
+   to the message spool is "Delivery agent". In server mode, the 
+   mailspool is locked, scanned, and then unlocked. The qpopper 
+   assumes that only new messages will be appended to the mailspool.  
+   After retrieving messages, the qpopper checks for any 
+   remaining messages (undeleted messages)for status and UID 
+   updates. If there are any changes, it updates the mailspool.
+
+5.5) Benefits of Server Mode :
+    The benefit of using this mode is that the mailspool is not
+   copied to the temporary spool area unless mail is left on 
+   the server, and when messages are read and/or deleted.  The 
+   NO_STATUS flag causes the qpopper to ignore the Status 
+   header and recalculates the UID each time the mailspool is 
+   run. When new messages are read, the new UID and Status 
+   headers are not updated and no copy of the mailspool is 
+   done.  
+    
+   In server mode, if all messages are deleted, then the 
+   mailspool is truncated (unless new messages have arrived).  
+   The initial copy is not processed, and IO cycles are saved.  
+
+6.0 SHADOW PASSWORDS / ENHANCED SECURITY SYSTEMS :
+--------------------------------------------------
+
+Some OS configurations require different libraries to perform the 
+authentication.
+For these systems run the configure script with 
+  ./configure --enable-specialauth
+or
+  define AUTH_SPECIAL, the preprocessor macro.
+
+The known systems that Qpopper supports with AUTH_SPECIAL are,
+  Linux with Shadow passwords
+  Digital Unix with C2 Enabled.
+  HP Unix in Trusted Mode.
+  SUNOS4.x with Shadow passwords
+
+The systems for which the macro AUTH_SPECIAL is active by default are,
+  SCO
+  ULTRIX
+  SOLARIS
+
+
+7.0 COMPILE TIME MACROS(for other options):
+-------------------------------------------
+
+There are options to consider when doing a build. If you 
+want to change any of the default settings, make the 
+appropriate changes to the Makefile while reading this 
+document. 
+
+7.1) config.h & popper.h - There are some macro definitions 
+you may want to change.
+
+  a) MMDF_SEP_CHAR - Default is '\001' (<CTL>-A).  
+ A line that starts with this character is 
+ considered an MMDF separator.  The rest of the 
+ line is copied as the separator regardless of its 
+ value.
+
+  b) BULLDIR - Is the compiled value as opposed to 
+ the command line option that enables bulletins.
+ You can also specify this value in the makefile 
+ -DBULLDIR=\"/var/spool/bulls\". This makes
+ bulletins the default regardless of the command 
+ line options.  The option -DBULLDB uses
+ an ndbm or gdbm database for tracking bulletins 
+ sent to pop users.  If you use this feature, it 
+ will read the old ~user/.popbull file if it 
+ exists. -DBULLDB requires two blank files with 
+ the name of BULLDIR/bulldb.pag and 
+ BULLDIR/bulldb.dir to be created.
+
+  c) NEWBULLCNT - New users receive all bulletins 
+ by default. This value reduces the max bulletin 
+ value for new qpopper users.
+
+  d) OFF_T - If "off_t" is not typedefed for you, 
+ then set this definition to a type that lseek and 
+ ftruncate and expect it as an offset parameter.
+ UID_T, GID_T, and PID_T are also available for 
+ portability.
+
+  e) BLOCK_UID - This value protects mailboxes of 
+ all UIDs, at and below, from being accessed via 
+ the qpopper.  The default value is 10 meaning 
+ that root and other users with UID values of 10 
+ and under will not be able to login via the 
+ qpopper.
+
+  f) POP_DROP - When qpopper runs, it moves your 
+ mailspool to a temporary location (.user.pop).  The 
+ default location is in the mail spool directory.  
+ /tmp is an alternative but is considered to be a 
+ security risk. A system reboot usually clears the 
+ temporary .user.pop files. For performance reasons, a 
+ sysadmin who has 1000+ users can create a separate 
+ spool directory for qpopper files; /usr/spool/poptemp 
+ is preferable. Permissions should be the same as your 
+ mailspool with the same owner and group. Edit the value
+ of POP_DROP in config.h. 
+ For Eg: #define POP_DROP "/usr/spool/poptemp/.%s.pop"
+
+7.2) Makefile - The makefile for your OS is setup for 
+the most common defaults. Below are some values you 
+may want to modify.
+These precompiler macros are to be placed in Makefile. 
+Append these defines to DEFS in Makefile. For eg to 
+enable Kerberos modify DEFS in Makefile to 
+  DEFS   =  -DHAVE_CONFIG_H -DKERBEROS
+To enable Kerberos and Verbose Debugging
+  DEFS   =  -DHAVE_CONFIG_H -DKERBEROS -DDEBUG
+
+  a) KERBEROS - Define this value if you want to 
+ add Kerberos IV support to the server.  Update 
+ the makefile so you can load the appropriate 
+ libraries(-lkrb).  This option works only if you 
+ have Kerberos headers and libraries installed.  
+ You can also define KUSEROK if you want to use 
+ the kuserok()function.
+
+  b1) AUTHFILE - Define this value to reference the 
+ file which allows only users listed in the file 
+ to have qpopper access.  
+ Ex: -DAUTHFILE=\"/etc/authfile\"
+ The format is a list of user id's, one per line.
+
+  b2) NONAUTHFILE - Define this value to reference 
+ the file which excludes listed users.
+ Ex: -DAUTHFILE=\"/etc/nonauthfile\"
+ The format is a list of user id's, one per line.
+
+  c) AUTH_SPECIAL - Define this value if your system 
+ supports special authorization mechanisms like 
+ shadow passwords or special crypt programs. 
+ Qpopper's makefiles support this feature. 
+ SunOS4.x does not support this by default, since 
+ it requires the code to be loaded which is not 
+ done by default. If you support shadow passwords 
+ on SunOS4.x, then define SUNOS4 and AUTH_SPECIAL in the 
+ Makefile. You may have to port a pop_pass routine 
+ for your OS before enabling this feature.
+
+  d) RPOP - This feature allows the pop client to 
+ use the hosts.equiv and .rhosts files for 
+ system/user validation.  This feature is not 
+ recommended since it can spoof both a PC or Mac 
+ system.
+
+  e) SECURENISPLUS - Add this definition if you are 
+ running secure NIS+; that is, when the qpopper 
+ server cannot access a user’s encrypted password.
+
+  f) DEBUG - Verbose logging requires the -d 
+ commandline argument to enable.  Enable this only 
+ if you are having problems figuring out why the 
+ qpopper is not working.  Log files on busy 
+ systems expand quickly.
+	    
+  g) SETPROCTITLE - This definition controls 
+ whether setproctitle()should be used to display 
+ user, host, and status in the process title.  
+ Your OS must support this feature.
+
+  h) KEEP_TEMP_DROP - Keep the .user.pop file.  It 
+ can determine the last time a user has accessed 
+ his/her mail.
+
+  i) BIND43 - BSD 4.3 is a domain name service.
+
+  j) SYSLOG42 - The QUALCOMM qpopper defaults to 
+ BSD 4.3 syslog.
+
+  k) HOMEDIRMAIL - Define this value if mail is 
+ spooled into the user's home directory. Check the
+ macro and the sprintf statement in pop_dropcopy.c 
+ ensuring that it is correct for your system.
+
+  l) APOP=\"/etc/pop.auth\" - This value is the 
+ location of the authorization database.  Users 
+ found in this DB may not use user/pass 
+ authentication if they are found in the apop 
+ database.
+
+  m) POPUID=\"pop\" - This value is the username of 
+ the owner of the apop database.
+
+  n) GNUPASS - This definition specifies the use of 
+ the (modified) GNU getpass routine which allows 
+ longer than 8 character passwords to be entered 
+ when using popauth. There is also a definition 
+ within popauth (NO_GETLINE) if you
+ compile this code, and it complains of not having 
+ a getline routine.
+
+  o) CONTENT_LENGTH - If your MTA (Mail Delivery
+ Agent) inserts a Content-Length header into the 
+ message, you must define this option.
+
+  p) SERVER_MODE - See SERVER MODE section for 
+ details.
+
+  q) NO_STATUS - Do not update the status Header of 
+ the message and do not store the UID in the 
+ message header.
+
+  r) NOUPDATEONABORT - By default, the qpopper  
+ enters the update state on abort. This flag 
+ causes the qpopper to ignore any changes 
+ (deletions) to occur if a qpopper session is 
+ aborted.
+
+  s) HASH_SPOOL=(1|2) - Mail is deposited into the 
+ mailspools by either 
+   (1) hashing the first 4 characters or 
+   (2) by using mailspools in directories as in the 
+  following:  /<1st letter>/<2nd letter>/file.
+
+  t) BULLDB - Use a central database located in the 
+ bulletin directory instead of a user’s home 
+ directory.  This feature uses the user’s .popbull 
+ file the first time for backwards compatibility.  
+ BULLDBDIR can be defined in the makefile if an 
+ alternate location for the bulletin database is 
+ desired.
+
+  u) CHECK_SHELL - Enable this compile time feature 
+ to lock out users via the shell value.  A user 
+ shell of /QPOPPER/ANY/SHELL allows the user 
+ access but blocks other programs that check 
+ shells.
+		
+  v) GDBM - This value uses the GNU's GDBM library 
+ instead of NDBM.
+
+
+
+
+NOTES:
+
+The qpopper uses /etc/passwd to validate the userid for any user 
+in any mode (user/pass, kerberos, apop, authuser, nonauthuser).  
+The reason being that the mail spool file must be owned by 
+someone, and ownership relationships live in /etc/passwd.  So, a 
+user name must exist in both the passwd file as well as any of 
+the other files associated with other authentication methods.
+
+SCO - Some versions of SCO use the crypt_d library, others 
+the crypt_i library.  This distribution assumes crypt_d. SCO
+	requires loading the Standard and TCP/IP development 
+environments to get the sockets and crypt libraries.
+
+IRIX - The default spool directory is /usr/mail; some 
+systems use /usr/spool/mail.
+
+FreeBSD - This requires the crypt library for password 
+comparisons. Check the FreeBSD.crypt file in the doc 
+directory for the appropriate locations.
+
+OSF/1 - If you are not using enhanced security (shadow 
+passwords), then turn off the AUTH define. Otherwise, you 
+receive a link error stating that set_auth_parameters() is 
+not defined.
+
+A/UX - A/UX does not support the sticky bit, so the default 
+dir is /tmp.  If you want to support shadow passwords, you 
+need to add the -DAUTH define into make.aux.  A shadow 
+passwd library is also required.  You can find one on
+jagubox.gsfc.nasa.gov.  A/UX requires gcc and libUTIL.a,
+also available on jagubox to build this version of qpopper.
+
+ISC - APOP does not work because the port was installed on a 
+system without dbm.  If you want to use apop, then get a 
+working dbm library, change the link line, and add the APOP 
+definitions.
+
+SUNOS - Some systems don't seem to have strerr defined in 
+the default location.  You may need to use the alternate 
+CFLAGS to compile correctly.
+
+NCR - You may need to increase STRTHRESH, for example, a 600 
+user system needs to increase from 0x200000 to 0x600000.
+
+Next - You should probably use NetInfo Manager available 
+under Next Admin to change your services file.
+
+Bulletins - The From line must be complete with address and 
+date. If the qpopper can use full From lines, then a simple 
+"From" line causes the message to get concatenated to the 
+previous message.
+
+DEBUGGING:
+Telnet to the qpopper port "telnet <qpopper host> pop3." 
+INETD is not servicing the POP port if you receive one of 
+the following error messages:
+
+	1. "connect: Connection refused"
+
+	2. "connect: Connection closed"
+	    
+If you receive message 1, check your services file and make 
+sure the port name "POP3" is exactly the same as the one in 
+inetd.conf.  Also, it can indicate that you have not reset 
+inetd (kill -HUP <inetd PID>)(some systems can use inetd -
+c). 
+
+If you receive message 2, this indicates that inetd has the 
+correct port assigned to the qpopper, but that either 
+program cannot be located, or it is failing on startup.  If 
+you are compiling with a listed OS, chances are the POP 
+program is not named correctly in the /etc/inetd.conf file.  
+Otherwise, add the -d flag and check your log messages for 
+the source of the problem.
+
+If you have correctly installed the qpopper as far as inetd 
+is concerned, you will see the following line, and the 
+startup banner is displayed:
+
++OK QPOP (version 2.53) at <system> starting. <13625.811191280@system>
+
+Now, you need to run two commands to give yourself 
+authorization to run qpopper. Make sure you have a message 
+or two queued so you can ensure that the qpopper is pointing 
+at the correct mail spool file.  Be aware that the password 
+is echoed back: 
+
+  	user <your user name here>
+    	+OK Password required for <your user name users>
+    	pass <your password>
+    	+OK mark has 2 message(s) (4123 octets).
+
+If you have the authority and if you have two messages, you 
+can enter QUIT to exit.  LIST and UIDL are two commands to 
+list messages by size and ID. At this point, Eudora or any 
+other pop client should not have any problems communicating 
+with your qpopper.
+
+If you get the following message: Unable to process From 
+lines (envelops), change recognition modes.
+
+This indicates that your mailbox is corrupted; that is, the 
+first line which includes the From header or MMDF separator 
+is not recognizable. Or there may be a From line displayed 
+that has never appeared before.  Edit the mail spool file 
+and send the first line.  If the first line is blank, then 
+remove it until you reach the From line.
+
+If an error message displays indicating that your password 
+is incorrect, you might be using a shadow password, and you 
+may need to use the -DAUTH definition. Or, you might be 
+using a UID less than 11 (default) which is automatically 
+blocked from access.
+
+
+
+
+
+
+
+
+
+
+

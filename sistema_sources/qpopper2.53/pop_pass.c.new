@@ -1,0 +1,1047 @@
+/*
+ * Copyright (c) 1989 Regents of the University of California.
+ * All rights reserved.  The Berkeley software License Agreement
+ * specifies the terms and conditions for redistribution.
+ */
+
+/*
+ * Copyright (c) 1997 by Qualcomm Incorporated.
+ */
+
+#include <config.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <string.h>
+#if HAVE_STRINGS_H
+# include <strings.h>
+#endif
+
+#include <pwd.h>
+#include "popper.h"
+
+#define	SLEEP_SECONDS 10
+
+
+/* This error message is vague on purpose to help reduce help improve
+   security at the inconvience of administrators and users */
+
+char	*pwerrmsg = "Password supplied for \"%s\" is incorrect.";
+
+#ifdef POPUSERSORACLE /* Definicoes */
+
+char orapopuser[] = "popmgr";
+
+static text *oraname = (text *) "gbl";       /* Nome do Usuario Oracle */
+static text *orapass = (text *) "oronsuse";  /* Senha do Usuario */
+
+/* Define comando SQL a ser usado no programa */
+
+static text *seleuser = (text *) "SELECT password,bloqueado FROM pop WHERE userid = :userid";
+
+#define TAM_MAX_AUTH_NAME 32
+
+char userid[TAM_MAX_AUTH_NAME];         /* Nome do Usuario a ser Autenticado */
+
+#define TAM_MAX_AUTH_PASS 32
+
+char password[TAM_MAX_AUTH_PASS];       /* Senha do Usuario */
+
+#define TAM_BLOQUEADO 1
+
+char bloqueado[TAM_BLOQUEADO]; /* Status do Usuario: 0 - Liberado
+                                                     1 - Bloqueado */
+
+char bloqueadont[TAM_BLOQUEADO+1];
+
+static OCIEnv    *envhp;  /* Environment */
+static OCIServer *srvhp;  /* Server */
+static OCIError  *errhp;  /* Error */
+static OCISvcCtx *svchp;  /* Service */
+static OCIStmt   *stmthp; /* Statement */
+
+static OCIBind   *bindp = (OCIBind *) 0;   /* Bind (Input Variable) */
+
+static OCIDefine *defnpass = (OCIDefine *) 0; /* Define (Output Variable) */
+static OCIDefine *defnbloq = (OCIDefine *) 0; /* Define (Output Variable) */
+
+static sword status;
+
+#endif /* POPUSERSORACLE */
+
+#ifdef NONAUTHFILE
+checknonauthfile(user) 
+     char *user;
+{
+    char buf[MAXUSERNAMELEN+1];
+    FILE *fp;
+    char cool = 0;
+
+    if ((fp = fopen(NONAUTHFILE, "r")) != NULL) {
+	while (fgets(buf, MAXUSERNAMELEN+1, fp)) {
+	    buf[strlen(buf) -1] = '\0';
+	    if (!strcmp(buf, user)) {
+		fclose(fp);
+		return(-1);
+	    }
+	}
+
+	fclose(fp);
+    }
+    return(0);
+}
+#endif
+
+#ifdef AUTHFILE
+checkauthfile(user) 
+     char *user;
+{
+    char buf[MAXUSERNAMELEN+1];
+    FILE *fp;
+    char cool = 0;
+
+    if ((fp = fopen(AUTHFILE, "r")) != NULL) {
+	while (fgets(buf, MAXUSERNAMELEN+1, fp)) {
+	    buf[strlen(buf) -1] = '\0';
+	    if (!strcmp(buf, user)) {
+		fclose(fp);
+		return(0);
+	    }
+	}
+
+	fclose(fp);
+    }
+    return(-1);
+}
+#endif
+
+int auth_user_kerberos (p, pw)
+POP     *   p;
+struct passwd *pw;
+{
+#ifdef KERBEROS
+    char lrealm[REALM_SZ];
+    int status;
+    struct passwd *pwp;
+ 
+    if ((status = krb_get_lrealm(lrealm,1)) == KFAILURE) {
+        pop_log(p, LOG_WARNING, "%s: (%s.%s@%s) %s", p->client, kdata.pname, 
+		kdata.pinst, kdata.prealm, krb_err_txt[status]);
+        return(pop_msg(p,POP_FAILURE,
+            "Kerberos error:  \"%s\".", krb_err_txt[status]));
+    }
+
+# ifdef KUSEROK
+    if (kuserok(&kdata, p->user)) {
+        pop_log(p, LOG_WARNING, "%s: (%s.%s@%s): not in %s's ACL.",
+	    p->client, kdata.pname, kdata.pinst, kdata.prealm, p->user);
+	return(pop_msg(p,POP_FAILURE, "Not in %s's ACL.", p->user));
+    }
+# else
+    if (strcmp(kdata.prealm,lrealm))  {
+         pop_log(p, LOG_WARNING, "%s: (%s.%s@%s) realm not accepted.", 
+		 p->client, kdata.pname, kdata.pinst, kdata.prealm);
+	 return(pop_msg(p,POP_FAILURE,
+		     "Kerberos realm \"%s\" not accepted.", kdata.prealm));
+    }
+
+    if (strcmp(kdata.pinst,"")) {
+        pop_log(p, LOG_WARNING, "%s: (%s.%s@%s) instance not accepted.", 
+		 p->client, kdata.pname, kdata.pinst, kdata.prealm);
+        return(pop_msg(p,POP_FAILURE,
+	      "Must use null Kerberos(tm) instance -  \"%s.%s\" not accepted.",
+	      kdata.pname, kdata.pinst));
+    }
+# endif /* KUSEROK */
+    return(POP_SUCCESS);
+#else	/* Kerberos not defined */
+    return(pop_log(p, LOG_WARNING,
+	"Kerberos failure: The popper has not been compiled with -DKERBEROS"));
+#endif	/* KERBEROS */
+}
+
+
+#ifdef AUTH_SPECIAL
+    char *crypt();
+
+#if defined(SUNOS4) && !defined(ISC)
+
+#include <sys/label.h>
+#include <sys/audit.h>
+#include <pwdadj.h>
+
+static int
+auth_user(p, pw)
+POP     *   p;
+struct passwd *pw;
+{
+    struct passwd_adjunct *pwadj;
+
+    /*  Look for the user in the shadow password file */
+    if ((pwadj = getpwanam(p->user)) == NULL) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE,
+		"(shadow) Password supplied for \"%s\" is empty.",p->user));
+    } else {
+        pw->pw_passwd = (char *)strdup(pwadj->pwa_passwd);
+    }
+
+    /*  We don't accept connections from users with null passwords */
+    /*  Compare the supplied password with the password file entry */
+    if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0') ||
+		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE,pwerrmsg, p->user));
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif	/* SUNOS4 */
+
+#if defined(SOLARIS2) || defined(AUX) || defined(UXPDS)
+
+#include <shadow.h>
+
+static int
+auth_user(p, pw)
+POP     *   p;
+struct passwd *pw;
+{
+    register struct spwd * pwd;
+    long today;
+
+    /*  Look for the user in the shadow password file */
+    if ((pwd = getspnam(p->user)) == NULL) {
+        if (!strcmp(pw->pw_passwd, "x")) {	/* This my be a YP entry */
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+    } else {
+	today = (long)time((time_t *)NULL)/24/60/60;
+
+	/* Check for expiration date */
+	if (pwd->sp_expire > 0 && today > pwd->sp_expire) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+	}
+
+	/* Check if password is valid */
+	if (pwd->sp_max > 0 && today > pwd->sp_lstchg+pwd->sp_max) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+	}
+
+	pw->pw_passwd = (char *)strdup(pwd->sp_pwdp);
+	endspent();
+    }
+
+    /*  We don't accept connections from users with null passwords */
+    /*  Compare the supplied password with the password file entry */
+    if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0') ||
+		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p, POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif	/* SOLARIS2 || AUX */
+
+#if defined(PTX) || defined(ISC)
+
+#include <shadow.h>
+
+static int
+auth_user(p, pw)
+POP     *   p;
+struct passwd *pw;
+{
+    register struct spwd * pwd;
+    long today;
+
+    /*  Look for the user in the shadow password file */
+    if ((pwd = getspnam(p->user)) == NULL) {
+        if (!strcmp(pw->pw_passwd, "x")) {	/* This my be a YP entry */
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+    } else {
+	pw->pw_passwd = (char *)strdup(pwd->sp_pwdp);
+    }
+
+    /*  We don't accept connections from users with null passwords */
+    /*  Compare the supplied password with the password file entry */
+    if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0') ||
+		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif	/* PTX */
+
+#if defined(POPSCO) || defined(HPUX10)
+
+#ifdef POPSCO
+# include <sys/security.h>
+# include <sys/audit.h>
+#else
+# include <hpsecurity.h>
+#endif
+
+#include <prot.h>
+#define PASSWD(p)	p->ufld.fd_encrypt
+
+static int
+auth_user(p, pw)
+POP     *   p;
+struct passwd *pw;
+{
+    register struct pr_passwd *pr;
+
+    if ((pr = getprpwnam(p->user)) == NULL) {
+        if (!strcmp(pw->pw_passwd, "x")) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+
+	/*  We don't accept connections from users with null passwords */
+	if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0') ||
+             (strcmp(bigcrypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd) &&
+	      strcmp(crypt (p->pop_parm[1], pw->pw_passwd), pw->pw_passwd))) {
+	    sleep(SLEEP_SECONDS);
+	    return(pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+    } else {
+	/*  We don't accept connections from users with null passwords */
+	/*  Compare the supplied password with the password file entry */
+	if ((PASSWD(pr) == NULL) || (*PASSWD(pr) == '\0')) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+	
+	if (strcmp(bigcrypt(p->pop_parm[1], PASSWD(pr)), PASSWD(pr)) &&
+		    strcmp(crypt(p->pop_parm[1], PASSWD(pr)), PASSWD(pr))) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif	/* POPSCO || HPUX10 */
+
+#ifdef ULTRIX
+
+#include <auth.h>
+
+static int
+auth_user(p, pw)
+struct passwd  *   pw;
+POP     *   p;
+{
+    AUTHORIZATION *auth, *getauthuid();
+
+    if ((auth = getauthuid(pw->pw_uid)) == NULL) {
+        if (!strcmp(pw->pw_passwd, "x")) {	/* This my be a YP entry */
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+    } else {
+	pw->pw_passwd = (char *)strdup(auth->a_password);
+    }
+
+    /*  We don't accept connections from users with null passwords */
+    /*  Compare the supplied password with the password file entry */
+    if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0')) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    if (strcmp(crypt16(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd) &&
+		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif	/* ULTRIX */
+
+#ifdef OSF1
+#include <sys/types.h>
+#include <sys/security.h>
+#include <prot.h>
+#define   PASSWD(p)   (p->ufld.fd_encrypt)
+static int
+auth_user(p, pw)
+POP     *   p;
+struct passwd *pw;
+{
+    register struct pr_passwd *pr;
+
+    if ((pr = getprpwnam(p->user)) == NULL) {
+        if (!strcmp(pw->pw_passwd, "x")) {	/* This my be a YP entry */
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+    } else {
+	pw->pw_passwd = (char *)strdup(PASSWD(pr));
+    }
+
+    /*  We don't accept connections from users with null passwords */
+    /*  Compare the supplied password with the password file entry */
+    if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0')) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    if (strcmp(bigcrypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd) &&
+		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif        /* OSF1 */
+
+#ifdef UNIXWARE
+
+#include <shadow.h>
+
+static int
+auth_user(p, pw)
+struct passwd  *   pw;
+POP     *   p;
+{
+    register struct spwd * pwd;
+    long today;
+
+    /*  Look for the user in the shadow password file */
+    if ((pwd = getspnam(p->user)) == NULL) {
+        if (!strcmp(pw->pw_passwd, "x")) {	/* This my be a YP entry */
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+    } else {
+	today = (long)time((time_t *)NULL)/24/60/60;
+
+	/* Check for expiration date */
+	if (pwd->sp_expire > 0 && today > pwd->sp_expire) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+	}
+
+	/* Check if password is valid */
+	if (pwd->sp_max > 0 && today > pwd->sp_lstchg+pwd->sp_max) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+	}
+
+	pw->pw_passwd = (char *)strdup(pwd->sp_pwdp);
+	endspent();
+    }
+
+    /*  We don't accept connections from users with null passwords */
+    /*  Compare the supplied password with the password file entry */
+    if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0') ||
+		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif	/* UNIXWARE */
+
+#ifdef LINUX
+#ifdef HAVE_SHADOW_H
+#include <shadow.h>
+#endif
+ 
+static int
+auth_user(p, pw)
+POP     *   p;
+struct passwd *pw;
+{
+    register struct spwd * pwd;
+    long today;
+
+    /*  Look for the user in the shadow password file */
+    if ((pwd = getspnam(p->user)) == NULL) {
+        if (!strcmp(pw->pw_passwd, "x")) {	/* This my be a YP entry */
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	}
+    } else {
+	today = (long)time((time_t *)NULL)/24/60/60;
+
+	/* Check for expiration date */
+	if (pwd->sp_expire > 0 && today > pwd->sp_expire) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+	}
+
+	/* Check if password is valid */
+	if (pwd->sp_max > 0 && today > pwd->sp_lstchg+pwd->sp_max) {
+	    sleep(SLEEP_SECONDS);
+	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+	}
+
+	pw->pw_passwd = (char *)strdup(pwd->sp_pwdp);
+	endspent();
+    }
+
+    /*  We don't accept connections from users with null passwords */
+    /*  Compare the supplied password with the password file entry */
+    /*  pw_encrypt() ??                                            */
+    if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0') || 
+	    (strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)
+#ifdef HAVE_PW_ENCRYPT
+	     && strcmp(pw_encrypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)
+#endif
+	     )){
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif  /* LINUX */
+
+#else	/* NOT AUTH_SPECIAL */
+
+char *crypt();
+
+static int
+auth_user(p, pw)
+POP     *   p;
+struct passwd  *   pw;
+{
+    /*  We don't accept connections from users with null passwords */
+    /*  Compare the supplied password with the password file entry */
+
+    if ((pw->pw_passwd == NULL) || (*pw->pw_passwd == '\0') ||
+		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    return(POP_SUCCESS);
+}
+
+#endif	/* AUTH_SPECIAL */
+
+/* 
+ *  pass:   Obtain the user password from a POP client
+ */
+
+#ifdef SECURENISPLUS
+# include <rpc/rpc.h>
+# include <rpc/key_prot.h>
+#endif
+
+int pop_pass (p)
+POP     *   p;
+{
+    int i;
+    struct passwd pw, *pwp;
+#ifdef CHECK_SHELL
+    char *getusershell();
+    void endusershell();
+    char *shell;
+    char *cp;
+    int shellvalid;
+#endif
+
+#ifdef SECURENISPLUS
+    UID_T uid_save;
+    char net_name[MAXNETNAMELEN],
+	 secretkey[HEXKEYBYTES + 1];
+
+    *secretkey = '\0';
+#endif
+
+#ifdef NONAUTHFILE
+    /* Is the user not authorized to use POP? */
+    if (checknonauthfile(p->user) != 0) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+#endif
+
+#ifdef AUTHFILE
+    /* Is the user authorized to use POP? */
+    if (checkauthfile(p->user) != 0) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+#endif
+
+#ifdef POPUSERSORACLE /* Trecho A */
+
+    /*  Look for the user in Oracle Server */
+    if (orauser_open(p) != 0) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    if (orauser_find(p) != 0) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+    orauser_close(p);
+
+    /*  Look for the popuser in the password file */
+    if ((pwp = getpwnam(orapopuser)) == NULL) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+#else /* not POPUSERSORACLE */
+
+    /* CODIGO ANTERIOR */
+
+    /*  Look for the user in the password file */
+    if ((pwp = getpwnam(p->user)) == NULL) {
+	sleep(SLEEP_SECONDS);
+	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+    }
+
+#endif /* POPUSERSORACLE */
+
+    pw = *pwp;
+
+#ifdef SECURENISPLUS
+    /*  we must do this keyserv stuff (as well as auth_user()!) as the user */
+    uid_save = geteuid();
+    seteuid(pw.pw_uid);
+
+    /*  see if DES keys are already known to the keyserv(1m) */
+    if (! key_secretkey_is_set()) {
+	/*  keys are not known, so we must get the DES keys
+	    and register with the keyserv(1m) */
+
+	getnetname(net_name);
+
+	if (getpublickey(net_name, secretkey)) {
+	    if (strlen(p->pop_parm[1]) > 8) (p->pop_parm[1])[8] = '\0';
+
+	    if (! getsecretkey(net_name, secretkey, p->pop_parm[1]) ||
+							*secretkey == '\0') {
+		sleep(SLEEP_SECONDS);
+		return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+	    }
+
+	    key_setsecret(secretkey);
+	    memset(secretkey, '\0', sizeof(secretkey));
+	} else {
+	    /* if there are no keys defined, we assume that password entry
+	       either resides in /etc/shadow or "root" has access to the
+	       corresponding NIS+ entry */
+	    seteuid(0);
+	}
+    }
+#endif
+
+#ifdef BLOCK_UID
+    if (pw.pw_uid <= BLOCK_UID)
+	return (pop_msg(p,POP_FAILURE,
+			    "Access is blocked for UIDs below %d", BLOCK_UID));
+#endif
+
+#ifdef CHECK_SHELL
+    /*  Disallow anyone who does not have a standard shell as returned by
+     *  getusershell(), unless the sys admin has included the wildcard
+     *  shell in /etc/shells.  (default wildcard - /POPPER/ANY/SHELL)
+     */
+    if ((shell = pw.pw_shell) == NULL || *shell == 0)
+/* You can default the shell, but I don't think it's a good idea */
+/*	shell = "/usr/bin/sh"; */
+	return(pop_msg(p, POP_FAILURE, "No user shell defined"));
+    
+    for (shellvalid = 0; !shellvalid && ((cp = getusershell()) != NULL);)
+	if (!strcmp(cp, WILDCARD_SHELL) || !strcmp(cp, shell))
+	     shellvalid = 1;
+    endusershell();
+
+    if (!shellvalid)
+	return(pop_msg(p, POP_FAILURE, "\"%s\": shell not found.", p->user));
+#endif
+
+#ifdef POPUSERSORACLE /* Trecho B */
+
+   /* Compare the supplied password with the column password in Oracle */
+   /* We don't accept null passwords */ 
+
+   password[13] = '\0'; /* Crypt password has 13 characters */
+
+   for (i = 0; i < TAM_BLOQUEADO; i++) {
+       bloqueadont[i] = bloqueado[i];
+   };
+   bloqueadont[TAM_BLOQUEADO] = '\0';
+
+   if ((password==NULL)||(*password=='\0')||(strcmp(crypt(p->pop_parm[1],password),password))||(atoi(bloqueadont)==0)) {
+      sleep(SLEEP_SECONDS);
+      pop_msg(p,POP_FAILURE, pwerrmsg, p->user);
+      pop_log(p,POP_PRIORITY,"Failed attempted login to %s from host %s",p->user,p->client);
+      return(POP_FAILURE);
+   }
+
+#else /* not POPUSERSORACLE */
+
+   /* CODIGO ANTERIOR */
+
+   if ((p->kerberos ? auth_user_kerberos(p, pw) : auth_user(p, pwp)) != POP_SUCCESS) {
+      pop_log(p,POP_PRIORITY,"Failed attempted login to %s from host %s",p->user,p->client);
+      return(POP_FAILURE);
+   }
+
+#endif /* POPUSERSORACLE */
+
+#ifdef SECURENISPLUS
+    seteuid(uid_save);
+#endif
+
+    /*  Make a temporary copy of the user's maildrop */
+    /*    and set the group and user id */
+    /*    and get information about the maildrop */
+    if (pop_dropcopy(p, &pw) != POP_SUCCESS) return (POP_FAILURE);
+
+    /*  Initialize the last-message-accessed number */
+    p->last_msg = 0;
+
+    /*  Authorization completed successfully */
+    return (pop_msg (p,POP_SUCCESS,
+        "%s has %d message%s (%d octets).",
+            p->user,p->msg_count, p->msg_count == 1 ? "" : "s", p->drop_size));
+}
+
+#ifdef POPUSERSORACLE /* Funcoes */
+
+/*************************************************************************
+*
+*	Function: orauser_error
+*
+*	Purpose: Grava no arquivo de log o erro informado pelo Oracle. 
+*
+*************************************************************************/
+
+void
+orauser_error(p,errhp, status)
+POP *p;
+OCIError *errhp;
+sword    status;
+{
+   text errbuff[512];
+   sb4  errcode = 0;
+
+   switch (status)
+   {
+   case OCI_SUCCESS:
+      break;
+   case OCI_SUCCESS_WITH_INFO:
+      pop_log(p,POP_FAILURE,"Error - OCI_SUCCESS_WITH_INFO\n");
+      break;
+   case OCI_NEED_DATA:
+      pop_log(p,POP_FAILURE,"Error - OCI_NEED_DATA\n");
+      break;
+   case OCI_NO_DATA:
+      pop_log(p,POP_FAILURE,"Error - OCI_NO_DATA\n");
+      break;
+   case OCI_ERROR:
+      (void) OCIErrorGet((dvoid *) errhp, (ub4) 1, (text *) NULL, &errcode, errbuff, (ub4) sizeof(errbuff), OCI_HTYPE_ERROR);
+      pop_log(p,POP_FAILURE,"Error - OCI_ERROR - %.*s\n",512,errbuff);
+      break;
+   case OCI_INVALID_HANDLE:
+      pop_log(p,POP_FAILURE,"Error - OCI_INVALID_HANDLE\n");
+      break;
+   case OCI_STILL_EXECUTING:
+      pop_log(p,POP_FAILURE,"Error - OCI_STILL_EXECUTING\n");
+      break;
+   case OCI_CONTINUE:
+      pop_log(p,POP_FAILURE,"Error - OCI_CONTINUE\n");
+      break;
+   default:
+      pop_log(p,POP_FAILURE,"Error - OCI_UNKNOWN_ERROR\n");
+      break;
+   }
+}
+
+/*************************************************************************
+*
+*	Function: orauser_close
+*
+*	Purpose: Libera Handles Alocados Previamente e Desconecta Servidor
+*
+*************************************************************************/
+
+void
+orauser_close(p)
+POP *p;
+{
+   /* Libera Handle de Statement */
+   if (stmthp)
+      orauser_error(p,errhp, OCIHandleFree((dvoid *) stmthp, OCI_HTYPE_STMT));
+
+   /* Desconecta do Servidor Oracle */
+   if (errhp)
+      (void) OCIServerDetach(srvhp, errhp, OCI_DEFAULT);
+
+   /* Libera Handle de Servidor */
+   if (srvhp)
+      orauser_error(p,errhp, OCIHandleFree((dvoid *) srvhp, OCI_HTYPE_SERVER));
+
+   /* Libera Handle de Servico */
+   if (svchp)
+      (void) OCIHandleFree((dvoid *) svchp, OCI_HTYPE_SVCCTX);
+
+   /* Libera Handle de Erro */
+   if (errhp)
+      (void) OCIHandleFree((dvoid *) errhp, OCI_HTYPE_ERROR);
+}
+
+/*************************************************************************
+*
+*	Function: orauser_open
+*
+*	Purpose: Inicializa Processo e Ambiente OCI, Aloca Handles,
+*                Conecta ao Servidor e Inicia Sessao de Usuario.
+*
+*************************************************************************/
+
+int
+orauser_open(p)
+POP *p;
+{
+   OCISession *usrhp = (OCISession *) 0;
+
+   /* Inicializa processo OCI */
+
+   status = OCIInitialize((ub4) OCI_DEFAULT, (dvoid *) 0, (dvoid * (*)(dvoid *, size_t)) 0, (dvoid * (*)(dvoid *, dvoid *, size_t)) 0, (void (*)(dvoid *, dvoid *)) 0);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Inicializa ambiente OCI */
+
+   status = OCIEnvInit((OCIEnv **) &envhp, OCI_DEFAULT, (size_t) 0, (dvoid **) 0);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Aloca Handle de Erro - Handle e' vinculado a Environment */
+
+   status = OCIHandleAlloc((dvoid *) envhp, (dvoid **) &errhp, OCI_HTYPE_ERROR, (size_t) 0, (dvoid **) 0);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Aloca Handle de Servidor - Handle e' vinculado a Environment */
+
+   status = OCIHandleAlloc((dvoid *) envhp, (dvoid **) &srvhp, OCI_HTYPE_SERVER, (size_t) 0, (dvoid **) 0);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Aloca Handle de Servico - Handle e' vinculado a Environment */
+
+   status = OCIHandleAlloc((dvoid *) envhp, (dvoid **) &svchp, OCI_HTYPE_SVCCTX, (size_t) 0, (dvoid **) 0);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Conecta ao Servidor Oracle */
+
+   status = OCIServerAttach(srvhp, errhp, "gbl", strlen("gbl"), 0);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Atribui o Contexto de Servidor no Contexto de Servico */
+   /* O Handle de Servidor e' vinculado a Service */
+
+   status = OCIAttrSet((dvoid *) svchp, OCI_HTYPE_SVCCTX, (dvoid *) srvhp, (ub4) 0, OCI_ATTR_SERVER, (OCIError *) errhp);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Aloca Handle de Sessao - Handle e' vinculado a Environment */
+
+   status = OCIHandleAlloc((dvoid *) envhp, (dvoid **) &usrhp, (ub4) OCI_HTYPE_SESSION, (size_t) 0, (dvoid **) 0);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Informa, no Handle de Sessao, o Nome do Usuario Oracle */
+
+   status = OCIAttrSet((dvoid *) usrhp, (ub4) OCI_HTYPE_SESSION, (dvoid *) oraname, (ub4) strlen((char *) oraname), (ub4) OCI_ATTR_USERNAME, errhp);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Informa, no Handle de Sessao, a Senha do Usuario */
+
+   status = OCIAttrSet((dvoid *) usrhp, (ub4) OCI_HTYPE_SESSION, (dvoid *) orapass, (ub4) strlen((char *) orapass), (ub4) OCI_ATTR_PASSWORD, errhp);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Inicia Sessao de Usuario */
+   /* O Handle de Sessao e' vinculado a Service */
+
+   status = OCISessionBegin(svchp, errhp, usrhp, OCI_CRED_RDBMS, (ub4) OCI_DEFAULT);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Inicializa contexto para Statement */
+
+   status = OCIAttrSet((dvoid *) svchp, (ub4) OCI_HTYPE_SVCCTX, (dvoid *) usrhp, (ub4) 0, (ub4) OCI_ATTR_SESSION, errhp);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Aloca Handle de Statement */
+
+   status = OCIHandleAlloc((dvoid *) envhp, (dvoid **) &stmthp, OCI_HTYPE_STMT, (size_t) 0, (dvoid **) 0);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Prepara a execucao do comando, atribuindo comando previamente definido */
+
+   status = OCIStmtPrepare(stmthp, errhp, seleuser, (ub4) strlen((char *) seleuser), (ub4) OCI_NTV_SYNTAX, (ub4) OCI_DEFAULT);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Bind the input variable (userid) */
+   /* O Handle de Bind e' alocado automaticamente, e vinculado a Statement */
+
+   status = OCIBindByName(stmthp, &bindp, errhp, (text *) ":userid", strlen(":userid"), (ub1 *) userid, TAM_MAX_AUTH_NAME, SQLT_CHR, (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Define the output variable (password) */
+   /* O Handle de Define e' alocado automaticamente, e vinculado a Statement */
+
+   status = OCIDefineByPos(stmthp, &defnpass, errhp, 1, (dvoid *) password, (sword) TAM_MAX_AUTH_PASS, SQLT_CHR, (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, OCI_DEFAULT);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   /* Define the output variable (bloqueado) */
+   /* O Handle de Define e' alocado automaticamente, e vinculado a Statement */
+
+   status = OCIDefineByPos(stmthp, &defnbloq, errhp, 2, (dvoid *) bloqueado, (sword) TAM_BLOQUEADO, SQLT_AFC, (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, OCI_DEFAULT);
+   if (status) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   return (0);
+}
+
+/*************************************************************************
+*
+*	Function: orauser_find
+*
+*	Purpose: Pesquisa o Nome do Usuario na Base de Dados Oracle.
+*
+*************************************************************************/
+
+int
+orauser_find (p)
+POP *p;
+{
+   char		*ptr;
+   int		usernamelen;
+   int          i;
+
+/* 
+ * Check for valid input, zero length names not permitted 
+ */
+
+   usernamelen=strlen(p->user);
+
+   if (usernamelen < 1) {
+      pop_log(p,POP_FAILURE,"orauser_find: zero length username rejected\n");
+      return(-1);
+   }
+
+   strncpy(userid,p->user,TAM_MAX_AUTH_NAME);
+   for (i = usernamelen; i < TAM_MAX_AUTH_NAME; i++) {
+       userid[i] = ' ';
+   }
+
+   /* Executa o comando SQL - Statement */
+
+   status = OCIStmtExecute(svchp, stmthp, errhp, (ub4) 1, (ub4) 0, (CONST OCISnapshot *) NULL, (OCISnapshot *) NULL, OCI_DEFAULT);
+
+   if ((status) && (status != OCI_NO_DATA)) {
+      orauser_error(p,errhp, status);
+      orauser_close(p);
+      return (-1);
+   }
+
+   if (status == OCI_NO_DATA) {
+      return (-1);
+   }
+
+   status = OCIStmtFetch(stmthp, errhp, (ub4) 0, (ub2) OCI_FETCH_NEXT, (ub4) OCI_DEFAULT);
+   if (status) {
+      orauser_error(p,errhp,status);
+      orauser_close(p);
+      return(-1);
+   }
+
+   return(0);
+
+}
+
+#endif /* POPUSERSORACLE */

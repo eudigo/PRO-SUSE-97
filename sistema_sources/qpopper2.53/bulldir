@@ -1,0 +1,660 @@
+pop_apop.c:    (void)strncpy(p->user, p->pop_parm[1], sizeof(p->user));
+pop_apop.c:    p->user[sizeof(p->user)-1] = 0;
+pop_apop.c:    pop_log(p, LOG_INFO, "apop \"%s\"", p->user);
+pop_apop.c:    if (checkauthfile(p->user) != 0)
+pop_apop.c:        return (pop_msg(p,POP_FAILURE,"Permission denied for %s.",p->user));
+pop_apop.c:    if (checknonauthfile(p->user) != 0)
+pop_apop.c:        return (pop_msg(p,POP_FAILURE,"Permission denied for %s.",p->user));
+pop_apop.c:    if (((pw = getpwnam (p->user)) == NULL) || (pw->pw_passwd == NULL) ||
+pop_apop.c:	return (pop_auth_fail(p,POP_FAILURE, pwerrmsg ,p->user));
+pop_apop.c:		    "User %s login denied.", p->user));
+pop_apop.c:			p->user, strerror(errno)));
+pop_apop.c:    key.dsize = strlen (key.dptr = p->user) + 1;
+pop_apop.c:    MD5Update(&mdContext, (unsigned char *)p->md5str, strlen(p->md5str));
+pop_apop.c:    if (strcmp(p->pop_parm[2], buffer)) {
+pop_apop.c:    if (p->debug)
+pop_apop.c:	pop_log(p, LOG_NOTICE, "APOP authentication ok for \"%s\"", p->user);
+pop_apop.c:    p->last_msg = 0;
+pop_apop.c:            p->user, p->msg_count, p->drop_size));
+pop_bull.c:   sprintf(popBullName, "%s/.popbull", pwp->pw_dir);
+pop_bull.c:   dirp = opendir(p->bulldir);
+pop_bull.c:         "Unable to open bulletin directory '%s'. (%d)", p->bulldir, errno);
+pop_bull.c:      if (!isdigit(*dp->d_name)) continue;
+pop_bull.c:      bullNumber = atol(dp->d_name);
+pop_bull.c:      list = insert_list(p, list, dp->d_name);
+pop_bull.c:   name.dptr = p->user;
+pop_bull.c:   name.dsize = strlen(p->user) + 1;
+pop_bull.c:   bull_count = gdbm_fetch(p->bull_db, name);
+pop_bull.c:   bull_count = dbm_fetch(p->bull_db, name);
+pop_bull.c:       gdbm_store(p->bull_db, name, bull_count, GDBM_REPLACE);
+pop_bull.c:       if (flock(dbm_dirfno(p->bull_db), LOCK_EX) == -1)
+pop_bull.c:       dbm_store(p->bull_db, name, bull_count, DBM_REPLACE);
+pop_bull.c:       flock(dbm_dirfno(p->bull_db), LOCK_UN);
+pop_bull.c:   save_count = p->msg_count;
+pop_bull.c:	      p->msg_count = save_count;
+pop_bull.c:       if (flock(dbm_dirfno(p->bull_db), LOCK_EX) == -1) {
+pop_bull.c:	   p->msg_count = save_count;
+pop_bull.c:       gdbm_store(p->bull_db, name, bull_count, GDBM_REPLACE);
+pop_bull.c:       dbm_store(p->bull_db, name, bull_count, DBM_REPLACE);
+pop_bull.c:       flock(dbm_dirfno(p->bull_db), LOCK_UN);
+pop_bull.c:	   p->msg_count = save_count;
+pop_bull.c:    msg_num = p->msg_count;
+pop_bull.c:    p->msg_count = (((p->msg_count - 1) / ALLOC_MSGS) + 1) * ALLOC_MSGS;
+pop_bull.c:    sprintf(bullName, "%s/%s", p->bulldir, name);
+pop_bull.c:    p->dirty = 1;
+pop_bull.c:    mp = p->mlp + msg_num - 1;
+pop_bull.c:    if (++msg_num > p->msg_count) {
+pop_bull.c:	p->mlp=(MsgInfoList *) realloc(p->mlp,
+pop_bull.c:	    (p->msg_count += ALLOC_MSGS)*sizeof(MsgInfoList));
+pop_bull.c:	if (p->mlp == NULL) {
+pop_bull.c:	    p->msg_count = 0;
+pop_bull.c:	     p->user);
+pop_bull.c:	mp = p->mlp + msg_num - 2;
+pop_bull.c:    mp->number = msg_num;
+pop_bull.c:    mp->length = 0;
+pop_bull.c:    mp->lines = 0;
+pop_bull.c:    mp->body_lines = 0;
+pop_bull.c:    mp->offset = ftell(p->drop);
+pop_bull.c:    mp->del_flag = FALSE;
+pop_bull.c:    mp->retr_flag = FALSE;
+pop_bull.c:    if (fputs(buffer, p->drop) == EOF) {
+pop_bull.c:	return(pop_msg(p, POP_FAILURE, errmesg, name, p->temp_drop, errno));
+pop_bull.c:    p->drop_size += strlen(buffer);
+pop_bull.c:    mp->lines++;
+pop_bull.c:    if (fputs(buffer, p->drop) == EOF) {
+pop_bull.c:	return(pop_msg(p, POP_FAILURE, errmesg, name, p->temp_drop, errno));
+pop_bull.c:    mp->length += strlen(buffer);
+pop_bull.c:    p->drop_size += strlen(buffer);
+pop_bull.c:    mp->lines++;
+pop_bull.c:    if(p->debug)
+pop_bull.c:		mp->number, mp->offset);
+pop_bull.c:    mp->uidl_str = (char *)strdup(buffer);
+pop_bull.c:		sprintf(buffer,"To: %s@%s\n", p->user, p->myhost);
+pop_bull.c:		mp->body_lines = 0;	/* Reset to zero when in the body */
+pop_bull.c:	mp->length += nchar;
+pop_bull.c:	p->drop_size += nchar;
+pop_bull.c:	mp->lines++;
+pop_bull.c:	mp->body_lines++;
+pop_bull.c:	if (fputs(buffer, p->drop) == EOF) {
+pop_bull.c:	    return(pop_msg(p,POP_FAILURE,errmesg,name,p->temp_drop, errno));
+pop_bull.c:    fflush(p->drop);
+pop_bull.c:    p->msg_count = msg_num;
+pop_bull.c:    if(p->debug && msg_num != 1)
+pop_bull.c:	mp->number,mp->uidl_str,mp->offset,mp->length,mp->lines);
+pop_dele.c:    msg_num = atoi(p->pop_parm[1]);
+pop_dele.c:    if ((msg_num < 1) || (msg_num > p->msg_count))
+pop_dele.c:    mp = &(p->mlp[msg_num-1]);
+pop_dele.c:    if (mp->del_flag)
+pop_dele.c:    mp->del_flag = TRUE;
+pop_dele.c:    if(p->debug)
+pop_dele.c:            mp->number,mp->offset,mp->length);
+pop_dele.c:    p->msgs_deleted++;
+pop_dele.c:    p->bytes_deleted += mp->length;
+pop_dele.c:    p->dirty = 1;
+pop_dele.c:    if (p->last_msg < msg_num) p->last_msg = msg_num;
+pop_dropcopy.c:    if (!p->user || *p->user == '\0')
+pop_dropcopy.c:    switch(strlen(p->user)) {
+pop_dropcopy.c:	   seed = (p->user[0]);
+pop_dropcopy.c:	   seed = (p->user[0] + p->user[1]);
+pop_dropcopy.c:	   seed = (p->user[0] + p->user[1] + p->user[2]);
+pop_dropcopy.c:	   seed = (p->user[0] + p->user[1] + p->user[2]+p->user[3]);
+pop_dropcopy.c:	   seed = (p->user[0] + p->user[1] + p->user[2]+p->user[3]+p->user[4]);
+pop_dropcopy.c:    strncpy(p->drop_name, POP_MAILDIR, sizeof(p->drop_name));
+pop_dropcopy.c:    strncat(p->drop_name, dirchar, sizeof(p->drop_name) - strlen(p->drop_name));
+pop_dropcopy.c:    strncat(p->drop_name, p->user, sizeof(p->drop_name) - strlen(p->drop_name));
+pop_dropcopy.c:    if (!p->user || *p->user == '\0')
+pop_dropcopy.c:		    *p->user, *(p->user+1) ? *(p->user+1) : *p->user, p->user);
+pop_dropcopy.c:    strncpy(p->drop_name, POP_MAILDIR, sizeof(p->drop_name));
+pop_dropcopy.c:    strncat(p->drop_name, pathstr, sizeof(p->drop_name) - strlen(p->drop_name));
+pop_dropcopy.c:    if ((pwp = getpwnam(p->user)) == NULL) {
+pop_dropcopy.c:    strncpy(p->drop_name, pwp->pw_dir, sizeof(p->drop_name));
+pop_dropcopy.c:    strncat(p->drop_name, "/.mail",sizeof(p->drop_name) - strlen(p->drop_name));
+pop_dropcopy.c:    strncpy(p->drop_name, POP_MAILDIR, sizeof(p->drop_name));
+pop_dropcopy.c:    strncat(p->drop_name, "/", sizeof(p->drop_name) - strlen(p->drop_name));
+pop_dropcopy.c:    strncat(p->drop_name, p->user, sizeof(p->drop_name) - strlen(p->drop_name));
+pop_dropcopy.c:    if(p->debug)
+pop_dropcopy.c:	pop_log(p,POP_DEBUG, "Checking for old .%s.pop file", p->user);
+pop_dropcopy.c:    p->mlp = (MsgInfoList *)calloc((unsigned)ALLOC_MSGS,sizeof(MsgInfoList));
+pop_dropcopy.c:    if (p->mlp == NULL){
+pop_dropcopy.c:            "Can't build message list for '%s': Out of memory", p->user);
+pop_dropcopy.c:    p->msg_count = 0;
+pop_dropcopy.c:    p->drop_size = 0;
+pop_dropcopy.c:  while ((tempchar = getc(p->drop)) == 0);
+pop_dropcopy.c:  ungetc(tempchar, p->drop);
+pop_dropcopy.c:    if (fgets(buffer, MAXMSGLINELEN, p->drop) == NULL) {
+pop_dropcopy.c:	if(p->debug)
+pop_dropcopy.c:								p->user, errno);
+pop_dropcopy.c:	p->mmdf_separator = (char *)strdup(buffer);
+pop_dropcopy.c:    rewind(p->drop);
+pop_dropcopy.c:    p->msg_count = ALLOC_MSGS;
+pop_dropcopy.c:  while ((tempchar = getc(p->drop)) == 0);
+pop_dropcopy.c:  ungetc(tempchar, p->drop);
+pop_dropcopy.c:    for (mp=p->mlp - 1; fgets(buffer, MAXMSGLINELEN, p->drop);) {
+pop_dropcopy.c:	    (p->mmdf_separator ? !strcmp(p->mmdf_separator, buffer) :
+pop_dropcopy.c:		if (++msg_num > p->msg_count) {
+pop_dropcopy.c:		    p->mlp = (MsgInfoList *) realloc(p->mlp,
+pop_dropcopy.c:			(p->msg_count += ALLOC_MSGS) * sizeof(MsgInfoList));
+pop_dropcopy.c:		    if (p->mlp == NULL){
+pop_dropcopy.c:			p->msg_count = 0;
+pop_dropcopy.c:				    p->user);
+pop_dropcopy.c:		    mp = p->mlp + msg_num - 2;
+pop_dropcopy.c:		if(p->debug && msg_num != 1)
+pop_dropcopy.c:	    mp->number, mp->uidl_str, mp->offset, mp->length, mp->lines);
+pop_dropcopy.c:		     mp->number);
+pop_dropcopy.c:	    mp->number = msg_num;
+pop_dropcopy.c:	    mp->length = 0;
+pop_dropcopy.c:	    mp->lines = 0;
+pop_dropcopy.c:	    mp->body_lines = 0;
+pop_dropcopy.c:	    mp->offset = ftell(p->drop) - nchar;
+pop_dropcopy.c:	    mp->del_flag = FALSE;
+pop_dropcopy.c:	    mp->retr_flag = FALSE;
+pop_dropcopy.c:	    mp->orig_retr_state = FALSE;
+pop_dropcopy.c:	    mp->uidl_str = "\n";
+pop_dropcopy.c:	    if(p->debug)
+pop_dropcopy.c:		pop_log(p,POP_DEBUG, "Msg %d being added to list", mp->number);
+pop_dropcopy.c:	    if (p->mmdf_separator)
+pop_dropcopy.c:		mp->body_lines = 1;  /* Count newline as the first body line */
+pop_dropcopy.c:		    cp = mp->uidl_str = (char *)malloc((DIG_SIZE * 2) + 2);
+pop_dropcopy.c:		    mp->length += strlen("X-UIDL: ") + strlen(mp->uidl_str) + 1;
+pop_dropcopy.c:		    p->drop_size += strlen("X-UIDL: ") + strlen(mp->uidl_str)+1;
+pop_dropcopy.c:		    p->dirty = 1;
+pop_dropcopy.c:			mp->uidl_str = (char *)strdup(cp);
+pop_dropcopy.c:			mp->length += nchar + 1;
+pop_dropcopy.c:			p->drop_size += nchar + 1;
+pop_dropcopy.c:		    mp->retr_flag = TRUE;
+pop_dropcopy.c:		    mp->orig_retr_state = TRUE;
+pop_dropcopy.c:	    mp->body_lines++;
+pop_dropcopy.c:	mp->length += nchar + 1;
+pop_dropcopy.c:	p->drop_size += nchar + 1;
+pop_dropcopy.c:	mp->lines++;
+pop_dropcopy.c:    p->msg_count = msg_num;
+pop_dropcopy.c:            p->drop_name, errno);
+pop_dropcopy.c:  while ((tempchar = getc(p->drop)) == 0);
+pop_dropcopy.c:  ungetc(tempchar, p->drop);
+pop_dropcopy.c:	if (!p->mmdf_separator)
+pop_dropcopy.c:	    p->mmdf_separator = (char *)strdup(buffer);
+pop_dropcopy.c:    msg_num = p->msg_count;
+pop_dropcopy.c:    p->msg_count = (((p->msg_count - 1) / ALLOC_MSGS) + 1) * ALLOC_MSGS;
+pop_dropcopy.c:  while ((tempchar = getc(p->drop)) == 0);
+pop_dropcopy.c:  ungetc(tempchar, p->drop);
+pop_dropcopy.c:    for (mp = p->mlp + msg_num - 1; fgets(buffer,MAXMSGLINELEN,mail_drop);) {
+pop_dropcopy.c:	if (fputs(buffer, p->drop) == EOF) {
+pop_dropcopy.c:		    p->temp_drop, errno);
+pop_dropcopy.c:	    (p->mmdf_separator ? !strcmp(p->mmdf_separator, buffer) :
+pop_dropcopy.c:		if (++msg_num > p->msg_count) {
+pop_dropcopy.c:		    p->mlp=(MsgInfoList *) realloc(p->mlp,
+pop_dropcopy.c:			(p->msg_count+=ALLOC_MSGS)*sizeof(MsgInfoList));
+pop_dropcopy.c:		    if (p->mlp == NULL) {
+pop_dropcopy.c:			p->msg_count = 0;
+pop_dropcopy.c:				p->user);
+pop_dropcopy.c:		    mp = p->mlp + msg_num - 2;
+pop_dropcopy.c:		if(p->debug && msg_num != 1)
+pop_dropcopy.c:	    mp->number,mp->uidl_str,mp->offset,mp->length,mp->lines);
+pop_dropcopy.c:		     mp->number);
+pop_dropcopy.c:            mp->number = msg_num;
+pop_dropcopy.c:            mp->length = 0;
+pop_dropcopy.c:            mp->lines = 0;
+pop_dropcopy.c:            mp->body_lines = 0;
+pop_dropcopy.c:            mp->offset = ftell(p->drop) - nchar;
+pop_dropcopy.c:            mp->del_flag = FALSE;
+pop_dropcopy.c:            mp->retr_flag = FALSE;
+pop_dropcopy.c:            mp->orig_retr_state = FALSE;
+pop_dropcopy.c:	    mp->uidl_str = "\n";
+pop_dropcopy.c:            if(p->debug)
+pop_dropcopy.c:                pop_log(p,POP_DEBUG, "Msg %d being added to list", mp->number);
+pop_dropcopy.c:	    if (p->mmdf_separator)
+pop_dropcopy.c:		mp->body_lines = 1;
+pop_dropcopy.c:		    cp = mp->uidl_str = (char *)malloc((DIG_SIZE * 2) + 2);
+pop_dropcopy.c:		    mp->length += strlen("X-UIDL: ") + strlen(mp->uidl_str) + 1;
+pop_dropcopy.c:		    p->drop_size += strlen("X-UIDL: ") + strlen(mp->uidl_str)+1;
+pop_dropcopy.c:		    p->dirty = 1;
+pop_dropcopy.c:			mp->uidl_str = (char *)strdup(cp);
+pop_dropcopy.c:			mp->length += nchar + 1;
+pop_dropcopy.c:			p->drop_size += nchar + 1;
+pop_dropcopy.c:		    mp->retr_flag = TRUE;
+pop_dropcopy.c:		    mp->orig_retr_state = TRUE;
+pop_dropcopy.c:	    mp->body_lines++;
+pop_dropcopy.c:        mp->length += nchar + 1;
+pop_dropcopy.c:        p->drop_size += nchar + 1;
+pop_dropcopy.c:        mp->lines++;
+pop_dropcopy.c:    p->msg_count = msg_num;
+pop_dropcopy.c:    if(p->debug && msg_num > 0) {
+pop_dropcopy.c:        for (i = 0, mp = p->mlp; i < p->msg_count; i++, mp++)
+pop_dropcopy.c:	    mp->number,mp->uidl_str,mp->offset,mp->length,mp->lines);
+pop_dropcopy.c:    if (fflush(p->drop) == EOF)
+pop_dropcopy.c:	    p->temp_drop, errno);
+pop_dropcopy.c:    (void)sprintf(p->temp_drop, POP_DROP, p->user);
+pop_dropcopy.c:    if(p->debug)
+pop_dropcopy.c:            p->temp_drop);
+pop_dropcopy.c:    if (p->bulldir) {
+pop_dropcopy.c:	sprintf(bull_db, "%s/bulldb", p->bulldir);
+pop_dropcopy.c:		if ((p->bull_db = gdbm_open (bull_db, 512, GDBM_WRCREAT, 0600, 0)) == NULL)
+pop_dropcopy.c:        if ((p->bull_db = dbm_open (bull_db, O_RDWR | O_CREAT, 0600)) == NULL) 
+pop_dropcopy.c:    pwp->pw_gid = (gid_t)BINMAIL_IS_SETGID;
+pop_dropcopy.c:	pwp->pw_gid = mybuf.st_gid;
+pop_dropcopy.c:    (void) setgid((GID_T)pwp->pw_gid);
+pop_dropcopy.c:    (void) setgroups(1,(GID_T *)&pwp->pw_gid); /* Set the supplementary groups list */
+pop_dropcopy.c:    (void) setuid((UID_T)pwp->pw_uid);
+pop_dropcopy.c:    if(p->debug)pop_log(p,POP_DEBUG,"uid = %d, gid = %d",getuid(),getgid());
+pop_dropcopy.c:    if ((dfd = open(p->temp_drop, O_RDWR | O_CREAT, 0600)) == -1) {
+pop_dropcopy.c:            "Unable to open temporary maildrop '%s': %s (%d)",p->temp_drop,
+pop_dropcopy.c:    if (mybuf.st_uid != pwp->pw_uid) {
+pop_dropcopy.c:	    p->user));
+pop_dropcopy.c:	    p->temp_drop));
+pop_dropcopy.c:	p->server_mode = 0;
+pop_dropcopy.c:    lstat(p->temp_drop, &mybuf);
+pop_dropcopy.c:	"Your temporary drop file %s is not type 'regular file'", p->temp_drop);
+pop_dropcopy.c:							p->temp_drop, errno);
+pop_dropcopy.c:	    p->temp_drop, (errno < sys_nerr) ? sys_errlist[errno] : "", errno);
+pop_dropcopy.c:      if (stat(p->temp_drop, &byName) || fstat(dfd, &byFd) ||
+pop_dropcopy.c:    if ( (p->drop = fdopen(dfd,"r+")) == NULL ) {
+pop_dropcopy.c:            p->temp_drop, errno);
+pop_dropcopy.c:    if (!p->server_mode) {
+pop_dropcopy.c:	(void)fseek(p->drop, 0L, SEEK_END);
+pop_dropcopy.c:	offset = ftell(p->drop);
+pop_dropcopy.c:    if (maillock(p->user,1) != 0)
+pop_dropcopy.c:            return pop_msg(p,POP_FAILURE, "maillock: '%s'", p->temp_drop);
+pop_dropcopy.c:    if ((mfd = open(p->drop_name, O_RDWR)) > 0) {
+pop_dropcopy.c:            return pop_msg(p,POP_FAILURE, "flock: '%s': %s (%d)", p->temp_drop,
+pop_dropcopy.c:	if (!p->server_mode) {
+pop_dropcopy.c:	    p->hold = p->drop;
+pop_dropcopy.c:	    if ((p->drop = fdopen(mfd,"r+")) == NULL) {
+pop_dropcopy.c:		    p->drop_name, errno);
+pop_dropcopy.c:    (void)fseek(p->drop, 0L, SEEK_END);
+pop_dropcopy.c:    offset = ftell(p->drop);
+pop_dropcopy.c:    if ((p->bulldir != NULL) && (pop_bull(p, pwp) != POP_SUCCESS)) {
+pop_dropcopy.c:        gdbm_close(p->bull_db);
+pop_dropcopy.c:        dbm_close(p->bull_db);
+pop_dropcopy.c:    (void)fseek(p->drop, 0L, SEEK_END);
+pop_dropcopy.c:    p->spool_end = ftell(p->drop);
+pop_dropcopy.c:    if (p->server_mode)
+pop_get_command.c:    if(p->debug) strncpy(buf, mp, sizeof(buf));
+pop_get_command.c:    if ((p->parm_count = pop_parse(p,mp)) < 0) return(NULL);
+pop_get_command.c:    if(p->debug){
+pop_get_command.c:        if(strcmp(p->pop_command,"pass") == 0)
+pop_get_command.c:            pop_log(p,POP_DEBUG,"Received: \"%.128s xxxxxxxxx\"",p->pop_command);
+pop_get_command.c:        if (strcmp(s->command,p->pop_command) == 0
+pop_get_command.c:             && s->ValidCurrentState == p->CurrentState) {
+pop_get_command.c:            if (p->parm_count < s->min_parms) {
+pop_get_command.c:                    "Too few arguments for the %.128s command.",p->pop_command);
+pop_get_command.c:            if (p->parm_count > s->max_parms) {
+pop_get_command.c:                    "Too many arguments for the %.128s command.",p->pop_command);
+pop_get_command.c:    pop_msg(p,POP_FAILURE,"Unknown command: \"%.128s\".",p->pop_command);
+pop_get_subcommand.c:        if (strcmp(s->subcommand,p->pop_subcommand) == 0) {
+pop_get_subcommand.c:            if ((p->parm_count-1) < s->min_parms) {
+pop_get_subcommand.c:                        p->pop_command,p->pop_subcommand);
+pop_get_subcommand.c:            if ((p->parm_count-1) > s->max_parms) {
+pop_get_subcommand.c:                        p->pop_command,p->pop_subcommand);
+pop_get_subcommand.c:            "Unknown command: \"%.128s %.128s\".",p->pop_command,p->pop_subcommand);
+pop_init.c:    if (p->kerberos) {
+pop_init.c:	    pop_log(p, LOG_WARNING, "%s: (%s.%s@%s) %s", p->client, 
+pop_init.c:	if (p->debug)
+pop_init.c:	strncpy(p->user, kdata.pname, sizeof(p->user));
+pop_init.c:    p->msgs_deleted = 0;
+pop_init.c:    p->last_msg = 0;
+pop_init.c:    p->bytes_deleted = 0;
+pop_init.c:    p->drop_size = 0;
+pop_init.c:    p->mmdf_separator = NULL;
+pop_init.c:    p->bulldir = BULLDIR;
+pop_init.c:    p->dirty = 0;
+pop_init.c:    p->xmitting = 0;
+pop_init.c:    p->kerberos = 0;
+pop_init.c:    p->server_mode = 1;
+pop_init.c:    p->server_mode = 0;
+pop_init.c:    p->myname = argmessage[0];
+pop_init.c:    if ((p->myhost = (char *)malloc(MAXHOSTNAMELEN+1)) == NULL) {
+pop_init.c:    (void)gethostname(p->myhost,MAXHOSTNAMELEN);
+pop_init.c:    if (hp = gethostbyname(p->myhost)) {
+pop_init.c:	if (! index(hp->h_name, '.')) {		/* FQN not returned */
+pop_init.c:	    u_long x = *(u_long *)hp->h_addr_list[0];
+pop_init.c:	        (void) strncpy (p->myhost, hp->h_name, MAXHOSTNAMELEN);
+pop_init.c:	        p->myhost[MAXHOSTNAMELEN] = '\0';
+pop_init.c:	    (void) strncpy (p->myhost, hp->h_name, MAXHOSTNAMELEN);
+pop_init.c:	    p->myhost[MAXHOSTNAMELEN] = '\0';
+pop_init.c:    (void)openlog(p->myname,0);
+pop_init.c:    (void)openlog(p->myname,POP_LOGOPTS,POP_FACILITY);
+pop_init.c:                p->debug++;
+pop_init.c:		if (p->debug)
+pop_init.c:		p->kerberos++;
+pop_init.c:                p->stats++;
+pop_init.c:                p->bulldir = optarg;
+pop_init.c:                p->debug++;
+pop_init.c:		if (p->trace)
+pop_init.c:                if ((p->trace = fopen(optarg,"a+")) == NULL) {
+pop_init.c:    p->ipaddr = (char *)strdup(inet_ntoa(cs.sin_addr));
+pop_init.c:    p->ipport = ntohs(cs.sin_port);
+pop_init.c:        p->client = p->ipaddr;
+pop_init.c:        p->client = (char *)strdup(ch->h_name);
+pop_init.c:                    p->ipaddr, h_name);
+pop_init.c:            p->client = p->ipaddr;
+pop_init.c:            p->client = (char *)strdup(ch_again->h_name);
+pop_init.c:                        p->ipaddr,h_name);
+pop_init.c:                p->client = p->ipaddr;
+pop_init.c:    if ((p->input = fdopen(sp,"r")) == NULL){
+pop_init.c:    if ((p->output = fdopen(sp,"w")) == NULL){
+pop_init.c:    if (p->debug)
+pop_init.c:		VERSION,p->client,p->ipaddr);
+pop_last.c:    int	count = p->msg_count;
+pop_last.c:    for (mp = p->mlp + p->msg_count - 1; count > 0; mp--, count--) {
+pop_last.c:	if ((mp->retr_flag == TRUE) && (mp->del_flag == FALSE))
+pop_list.c:    if (p->parm_count > 0) {
+pop_list.c:        msg_num = atoi(p->pop_parm[1]);
+pop_list.c:        if ((msg_num < 1) || (msg_num > p->msg_count))
+pop_list.c:        mp = &p->mlp[msg_num-1];
+pop_list.c:        if (mp->del_flag)
+pop_list.c:        return (pop_msg(p,POP_SUCCESS,"%u %u",msg_num,mp->length));
+pop_list.c:            p->msg_count-p->msgs_deleted,p->drop_size-p->bytes_deleted);
+pop_list.c:    for (i = p->msg_count, mp = p->mlp; i > 0; i--, mp++) {
+pop_list.c:        if (!mp->del_flag) 
+pop_list.c:            (void)fprintf(p->output,"%u %u\r\n",mp->number,mp->length);
+pop_list.c:    (void)fprintf(p->output,".\r\n");
+pop_list.c:    (void)fflush(p->output);
+pop_log.c:    if (p->debug && p->trace) {
+pop_log.c:	(void)fprintf(p->trace,"%s [%d] %s\n",date_time, getpid(), msgbuf);
+pop_log.c:        (void)fprintf(p->trace,"%s \n", date_time);
+pop_log.c:        (void)fflush(p->trace);
+pop_msg.c:    if (p->debug && stat == POP_SUCCESS)
+pop_msg.c:               (isdigit (p->client[0]) ? "%s@[%s]: %s" : "%s@%s: %s"),
+pop_msg.c:               (p->user ? p->user : "(null)"), p->client, message);
+pop_msg.c:    (void)fputs(message,p->output);
+pop_msg.c:    (void)fflush(p->output);
+pop_parse.c:        p->pop_parm[i] = mp;
+pop_parse.c: 	  pop_lower(p->pop_command);
+pop_parse.c: 	   * do it.  The "p->pop_command[0] == 'p'" is so save a call to
+pop_parse.c: 	  if(p->pop_command[0] == 'p' && strcmp(p->pop_command,"pass") == 0) {
+pop_parse.c: 	      p->pop_parm[1] = mp;
+pop_parse.c:                while (*mp == 0xa || *mp == 0xd) *mp-- = 0;
+pop_pass.c:        pop_log(p, LOG_WARNING, "%s: (%s.%s@%s) %s", p->client, kdata.pname, 
+pop_pass.c:    if (kuserok(&kdata, p->user)) {
+pop_pass.c:	    p->client, kdata.pname, kdata.pinst, kdata.prealm, p->user);
+pop_pass.c:	return(pop_msg(p,POP_FAILURE, "Not in %s's ACL.", p->user));
+pop_pass.c:		 p->client, kdata.pname, kdata.pinst, kdata.prealm);
+pop_pass.c:		 p->client, kdata.pname, kdata.pinst, kdata.prealm);
+pop_pass.c:    if ((pwadj = getpwanam(p->user)) == NULL) {
+pop_pass.c:		"(shadow) Password supplied for \"%s\" is empty.",p->user));
+pop_pass.c:		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE,pwerrmsg, p->user));
+pop_pass.c:    if ((pwd = getspnam(p->user)) == NULL) {
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+pop_pass.c:		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+pop_pass.c:	return (pop_msg(p, POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:    if ((pwd = getspnam(p->user)) == NULL) {
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:#define PASSWD(p)	p->ufld.fd_encrypt
+pop_pass.c:    if ((pr = getprpwnam(p->user)) == NULL) {
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:             (strcmp(bigcrypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd) &&
+pop_pass.c:	      strcmp(crypt (p->pop_parm[1], pw->pw_passwd), pw->pw_passwd))) {
+pop_pass.c:	    return(pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	if (strcmp(bigcrypt(p->pop_parm[1], PASSWD(pr)), PASSWD(pr)) &&
+pop_pass.c:		    strcmp(crypt(p->pop_parm[1], PASSWD(pr)), PASSWD(pr))) {
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:    if (strcmp(crypt16(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd) &&
+pop_pass.c:		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:#define   PASSWD(p)   (p->ufld.fd_encrypt)
+pop_pass.c:    if ((pr = getprpwnam(p->user)) == NULL) {
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:    if (strcmp(bigcrypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd) &&
+pop_pass.c:		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:    if ((pwd = getspnam(p->user)) == NULL) {
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+pop_pass.c:		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:    if ((pwd = getspnam(p->user)) == NULL) {
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+pop_pass.c:	    return (pop_msg(p,POP_FAILURE,"\"%s\": account expired.",p->user));
+pop_pass.c:	    (strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)
+pop_pass.c:	     && strcmp(pw_encrypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:		strcmp(crypt(p->pop_parm[1], pw->pw_passwd), pw->pw_passwd)) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:    if (checknonauthfile(p->user) != 0) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:    if (checkauthfile(p->user) != 0) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:    if ((pwp = getpwnam(p->user)) == NULL) {
+pop_pass.c:	return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	    if (strlen(p->pop_parm[1]) > 8) (p->pop_parm[1])[8] = '\0';
+pop_pass.c:	    if (! getsecretkey(net_name, secretkey, p->pop_parm[1]) ||
+pop_pass.c:		return (pop_msg(p,POP_FAILURE, pwerrmsg, p->user));
+pop_pass.c:	return(pop_msg(p, POP_FAILURE, "\"%s\": shell not found.", p->user));
+pop_pass.c:    if ((p->kerberos ? auth_user_kerberos(p, pw) : auth_user(p, pwp))
+pop_pass.c:							    p->user, p->client);
+pop_pass.c:    p->last_msg = 0;
+pop_pass.c:            p->user,p->msg_count, p->msg_count == 1 ? "" : "s", p->drop_size));
+pop_quit.c:    if (p->mlp) free ((char *)p->mlp);
+pop_quit.c:    if (p->CurrentState == auth2) {
+pop_quit.c:							p->user, p->client);
+pop_rpop.c:    if (p->ipport >= IPPORT_RESERVED || p->ipport < IPPORT_RESERVED/2)  {
+pop_rpop.c:	      "RPOP command from %s (%s) on illegal port.",p->client,p->ipaddr);
+pop_rpop.c:            "Permission denied.",p->user));
+pop_rpop.c:    if (ruserok(p->client, 0, p->pop_parm[1], p->user) != 0)
+pop_rpop.c:            "Permission denied.",p->user));
+pop_rpop.c:    if (checknonauthfile(p->user) != 0)
+pop_rpop.c:            "Permission denied.",p->user));
+pop_rpop.c:    if (checkauthfile(p->user) != 0)
+pop_rpop.c:            "Permission denied.",p->user));
+pop_rpop.c:    if ((pw = getpwnam(p->user)) == NULL)  /* "Can't happen" */
+pop_rpop.c:            "Permission denied.",p->user));
+pop_rpop.c:	return (pop_msg(p,POP_FAILURE, "Permission denied", p->user));
+pop_rpop.c:    p->last_msg = 0;
+pop_rpop.c:            p->user,p->msg_count,p->drop_size));
+pop_rset.c:    for (i = p->msg_count, mp = p->mlp; i > 0; i--, mp++) {
+pop_rset.c:        mp->del_flag = FALSE; 
+pop_rset.c:        mp->retr_flag = mp->orig_retr_state; 
+pop_rset.c:    p->msgs_deleted = 0;
+pop_rset.c:    p->bytes_deleted = 0;
+pop_rset.c:    p->last_msg = 0;
+pop_rset.c:        p->msg_count,p->drop_size));
+pop_send.c:    msg_num = atoi(p->pop_parm[1]);
+pop_send.c:    if ((msg_num < 1) || (msg_num > p->msg_count))
+pop_send.c:    mp = &p->mlp[msg_num-1];
+pop_send.c:    if (mp->del_flag)
+pop_send.c:    if (strcmp(p->pop_command,"top") == 0) {
+pop_send.c:        msg_lines = atoi(p->pop_parm[2]) + 1;
+pop_send.c:	msg_lines = msg_lines > mp->body_lines ? mp->body_lines : msg_lines; 
+pop_send.c:	if (mp->retr_flag != TRUE)
+pop_send.c:	    p->dirty = 1;
+pop_send.c:        msg_lines = mp->body_lines;
+pop_send.c:        mp->retr_flag = TRUE;
+pop_send.c:    pop_msg(p,POP_SUCCESS,"%u octets",mp->length);
+pop_send.c:    (void)fseek(p->drop, mp->offset, 0);
+pop_send.c:    (void)fgets (buffer,MAXMSGLINELEN,p->drop);
+pop_send.c:    while (fgets(buffer, MAXMSGLINELEN, p->drop)) {
+pop_send.c:	    sprintf(uidl_buf, "%s %s", "X-UIDL:", mp->uidl_str);
+pop_send.c:    while(fgets(buffer, MAXMSGLINELEN, p->drop)) {
+pop_send.c:    (void)fputs(".\r\n", p->output);
+pop_send.c:    (void)fflush(p->output);
+pop_send.c:    if (*buffer == POP_TERMINATE) (void)fputc(POP_TERMINATE,p->output);
+pop_send.c:    (void)fputs(buffer,p->output);
+pop_send.c:    if(p->debug)pop_log(p,POP_DEBUG,"Sending line \"%.1000s\"",buffer);
+pop_send.c:    if (bp) (void)fputs ("\r\n",p->output);
+pop_stat.c:    if (p->debug) pop_log(p,POP_DEBUG,"%d message(s) (%d octets).",p->msg_count-p->msgs_deleted,p->drop_size-p->bytes_deleted);
+pop_stat.c:        "%u %u",p->msg_count-p->msgs_deleted,p->drop_size-p->bytes_deleted));
+pop_uidl.c:    if (p->parm_count == 1) {
+pop_uidl.c:      len = strlen(p->pop_parm[1]);
+pop_uidl.c:      msg_id = atoi(p->pop_parm[1]);
+pop_uidl.c:      return (pop_msg (p,POP_FAILURE,"Parameter must be a number (range 1 to %d)", p->msg_count));
+pop_uidl.c:    if (len > 0 && (msg_id < 1 || msg_id > p->msg_count))
+pop_uidl.c:	      "Message out of range.  %d messages in mail drop.",p->msg_count));
+pop_uidl.c:      mp = &p->mlp[msg_id-1];
+pop_uidl.c:      if (mp->del_flag) {
+pop_uidl.c:	sprintf(buffer, "%d %s", msg_id, mp->uidl_str);
+pop_uidl.c:	for (x = 1; x <= p->msg_count; x++)
+pop_uidl.c:	    mp = &p->mlp[x-1];
+pop_uidl.c:	    if (mp->del_flag) continue;
+pop_uidl.c:	    sprintf(buffer, "%d %s", x, mp->uidl_str);
+pop_uidl.c:    (void)fputs(".\r\n",p->output);
+pop_uidl.c:    (void)fflush(p->output);
+pop_uidl.c:    fseek(p->drop, mp->offset, 0);
+pop_uidl.c:    while (fgets(buf, sizeof(buf), p->drop) != NULL) {
+pop_uidl.c:    if (p->parm_count == 1) {
+pop_uidl.c:      len = strlen(p->pop_parm[1]);
+pop_uidl.c:      msg_id = atoi(p->pop_parm[1]);
+pop_uidl.c:      return (pop_msg (p,POP_FAILURE,"Parameter must be a number (range 1 to %d)", p->msg_count));
+pop_uidl.c:    if (len > 0 && (msg_id < 1 || msg_id > p->msg_count))
+pop_uidl.c:	      "Message out of range.  %d messages in mail drop.",p->msg_count));
+pop_uidl.c:      mp = &p->mlp[msg_id-1];
+pop_uidl.c:      if (mp->del_flag) {
+pop_uidl.c:	sprintf(buffer, "%d %s", msg_id, mp->uidl_str);
+pop_uidl.c:	sprintf(buffer, "%s %d %.128s", buffer, mp->length, from_hdr(p, mp));
+pop_uidl.c:	for (x = 1; x <= p->msg_count; x++)
+pop_uidl.c:	    mp = &p->mlp[x-1];
+pop_uidl.c:	    if (mp->del_flag) continue;
+pop_uidl.c:	    sprintf(buffer, "%d %s", x, mp->uidl_str);
+pop_uidl.c:	    sprintf(buffer, "%s %d %.128s", buffer, mp->length, from_hdr(p, mp));
+pop_uidl.c:    (void)fputs(".\r\n",p->output);
+pop_uidl.c:    (void)fflush(p->output);
+pop_updt.c:    if (p->debug) {
+pop_updt.c:    if (p->stats) {
+pop_updt.c:           p->user, p->msgs_deleted, p->bytes_deleted,
+pop_updt.c:           p->msg_count - p->msgs_deleted,
+pop_updt.c:           p->drop_size - p->bytes_deleted);
+pop_updt.c:    if (p->server_mode) {
+pop_updt.c:	if (!p->dirty) {
+pop_updt.c:	    (void)unlink(p->temp_drop);
+pop_updt.c:	if (maillock(p->user, 1) != 0)
+pop_updt.c:	    return(pop_msg(p,POP_FAILURE,"maillock: '%s' (%d)",p->temp_drop,errno));
+pop_updt.c:    if (p->server_mode)
+pop_updt.c:	fstat(fileno(p->drop), &mybuf);
+pop_updt.c:    if ((p->msgs_deleted == p->msg_count) &&
+pop_updt.c:	(!p->server_mode || (mybuf.st_size == p->spool_end))) {
+pop_updt.c:	(void)ftruncate (fileno(p->drop), (OFF_T)0);
+pop_updt.c:	(void)unlink(p->temp_drop);
+pop_updt.c:	(void)fclose(p->drop);
+pop_updt.c:	if (p->server_mode) {
+pop_updt.c:	    (void)fclose(p->hold);
+pop_updt.c:    if (!p->server_mode) {
+pop_updt.c:	if (p->debug) 
+pop_updt.c:	    pop_log(p,POP_DEBUG,"Opening mail drop \"%s\"", p->drop_name);
+pop_updt.c:	if (maillock(p->user, 1) != 0)
+pop_updt.c:							p->drop_name, errno));
+pop_updt.c:	if ((mfd = open(p->drop_name,O_RDWR|O_CREAT,0660)) == -1 ||
+pop_updt.c:	if (maillock(p->user, 1) != 0)
+pop_updt.c:							p->drop_name, errno));
+pop_updt.c:	mfd = fileno(p->drop);
+pop_updt.c:        return pop_msg(p,POP_FAILURE, "flock: '%s': %s (%d)", p->drop_name,
+pop_updt.c:    if (!p->server_mode) {
+pop_updt.c:	(void)fseek(p->drop, 0, SEEK_END); 
+pop_updt.c:	offset = ftell(p->drop); 
+pop_updt.c:	    if ( nchar != write(fileno(p->drop), buffer, nchar) ) {
+pop_updt.c:	    (void)ftruncate(fileno(p->drop), (OFF_T)offset);
+pop_updt.c:	    (void)fclose(p->drop) ;
+pop_updt.c:	rewind(p->drop);
+pop_updt.c:	(void)lseek(fileno(p->drop), (OFF_T)0, L_SET);
+pop_updt.c:	if (p->debug) 
+pop_updt.c:		    p->drop_name,p->temp_drop);
+pop_updt.c:	fstat(fileno(p->drop), &mybuf);
+pop_updt.c:	md = p->hold;	/* Really the temp drop */
+pop_updt.c:    if (!p->server_mode || (p->msgs_deleted != p->msg_count)) {
+pop_updt.c:	for (msg_num = 0; msg_num < p->msg_count; ++msg_num) {
+pop_updt.c:	    mp = &p->mlp[msg_num];
+pop_updt.c:	    if (mp->del_flag) {
+pop_updt.c:		if(p->debug)
+pop_updt.c:			"Message %d flagged for deletion.",mp->number);
+pop_updt.c:	    (void)fseek(p->drop, mp->offset, SEEK_SET);
+pop_updt.c:	    if(p->debug)
+pop_updt.c:		pop_log(p,POP_DEBUG,"Copying message %d.",mp->number);
+pop_updt.c:	    fgets(buffer, MAXMSGLINELEN, p->drop);
+pop_updt.c:	    sprintf(buffer, "%s %s", "X-UIDL:", mp->uidl_str);
+pop_updt.c:				    fgets(buffer,MAXMSGLINELEN,p->drop);) {
+pop_updt.c:			    if (mp->retr_flag) {
+pop_updt.c:			if (mp->retr_flag)
+pop_updt.c:			if (++body_lines > mp->body_lines)
+pop_updt.c:	    if (p->mmdf_separator) {
+pop_updt.c:		fputs(p->mmdf_separator, md);
+pop_updt.c:	    (void)fclose(p->drop) ;
+pop_updt.c:	    (void)fclose(p->drop);
+pop_updt.c:    } /* p->msgs_deleted != p->msg_count */
+pop_updt.c:    if (p->server_mode) {
+pop_updt.c:	if (mybuf.st_size > p->spool_end) {
+pop_updt.c:	    (void)lseek(fileno(p->drop), (OFF_T)p->spool_end, L_SET); 
+pop_updt.c:	    while ((nchar = read(fileno(p->drop), buffer, BBSIZE)) > 0)
+pop_updt.c:	rewind(p->drop);
+pop_updt.c:	(void)ftruncate(fileno(p->drop), (OFF_T)0);
+pop_updt.c:	(void)lseek(fileno(p->drop), (OFF_T)0, L_SET);
+pop_updt.c:	    if (nchar != write(fileno(p->drop), buffer, nchar)) {
+pop_updt.c:	    (void)ftruncate(fileno(p->drop), (OFF_T)0);
+pop_updt.c:	    (void)fclose(p->drop);
+pop_updt.c:	(void)fclose(p->drop);
+pop_updt.c:	(void)unlink(p->temp_drop);
+pop_updt.c:	(void)lseek(fileno(p->drop), (OFF_T)offset, L_SET);
+pop_updt.c:	while((nchar = read(fileno(p->drop), buffer, BBSIZE)) > 0)
+pop_updt.c:	    (void)fclose(p->drop) ;
+pop_updt.c:	(void)ftruncate(fileno(p->drop), (OFF_T)0);
+pop_updt.c:	(void)unlink(p->temp_drop);
+pop_updt.c:	(void)fclose(p->drop);
+pop_updt.c:    if (p->debug)
+pop_updt.c:    if (p->server_mode)
+pop_updt.c:        (void) unlink(p->temp_drop);
+pop_updt.c:    if (p->debug)
+pop_updt.c:        pop_log(p,POP_DEBUG,"Opening mail drop \"%s\"", p->drop_name);
+pop_updt.c:    if (maillock(p->user, 1))
+pop_updt.c:        return pop_msg(p,POP_FAILURE,"maillock: '%s' (%d)",p->drop_name, errno);
+pop_updt.c:    if ((mfd = open(p->drop_name,O_RDWR | O_CREAT,0660)) == -1 ||
+pop_updt.c:        return pop_msg(p,POP_FAILURE, "flock: '%s': %s (%d)", p->drop_name,
+pop_updt.c:    (void)fseek(p->drop, 0, SEEK_END);
+pop_updt.c:    offset = ftell(p->drop);
+pop_updt.c:        if ( nchar != write(fileno(p->drop), buffer, nchar))
+pop_updt.c:            (void)ftruncate(fileno(p->drop), (OFF_T)offset);
+pop_updt.c:            (void)fclose(p->drop);
+pop_updt.c:       rewind(p->drop);
+pop_updt.c:       (void)lseek(fileno(p->drop), (OFF_T)0, L_SET);
+pop_updt.c:       while((nchar = read(fileno(p->drop), buffer, BBSIZE)) > 0)
+pop_updt.c:           (void)fclose(p->drop);
+pop_updt.c:       (void) ftruncate(fileno(p->drop), (OFF_T)0);
+pop_updt.c:       (void) unlink(p->temp_drop);
+pop_updt.c:       (void) fclose(p->drop);
+pop_user.c:    if (p->kerberos && strcmp(p->pop_parm[1], p->user)) {
+pop_user.c:		p->client, kdata.pname, kdata.pinst, kdata.prealm, 
+pop_user.c:		p->pop_parm[1]);
+pop_user.c:		       "Wrong username supplied (%s vs. %.128s).", p->user,
+pop_user.c:		       p->pop_parm[1]));
+pop_user.c:    (void)strncpy(p->user, p->pop_parm[1], sizeof(p->user));
+pop_user.c:    p->user[sizeof(p->user)-1] = 0;
+pop_user.c:    if (((pw = getpwnam(p->user)) != NULL) &&
+pop_user.c:	key.dsize = strlen (key.dptr = p->user) + 1;
+pop_user.c:    return (pop_msg(p,POP_SUCCESS,"Password required for %s.",p->user));
+pop_xmit.c:    if(p->debug)
+pop_xmit.c:    if(p->debug)pop_log(p,POP_DEBUG,"Receiving mail message");
+pop_xmit.c:    p->xmitting = 1;
+pop_xmit.c:    if(p->debug)pop_log(p,POP_DEBUG,"Receiving: \"%.1000s\"",buffer);
+pop_xmit.c:            p->xmitting = 0;
+pop_xmit.c:    if(p->debug)pop_log(p,POP_DEBUG,"Forking for \"%s\"",MAIL_COMMAND);
+pop_xmit.c:	    (void)openlog(p->myname,0);
+pop_xmit.c:	    (void)openlog(p->myname,LOG_PID,POP_FACILITY);
+pop_xmit.c:		    "Pop transmit from \"%s\" on \"%s\"", p->user, p->client);
+pop_xmit.c:            (void)fclose (p->input);
+pop_xmit.c:            (void)fclose (p->output);       
+pop_xmit.c:            if (!p->debug) (void)unlink (temp_xmit);
+pop_xmit.c:            if (!p->debug) (void)unlink (temp_xmit);
+pop_xmit.c:    if (!p->debug) (void)unlink (temp_xmit);
+pop_xtnd.c:    pop_lower(p->pop_subcommand);
+xtnd_xlst.c:    int len = strlen(p->pop_parm[2]);
+xtnd_xlst.c:    if (p->parm_count==3)
+xtnd_xlst.c:      min = max = atoi(p->pop_parm[3]);
+xtnd_xlst.c:      max = p->msg_count;
+xtnd_xlst.c:    if ((min < 1) || (min > p->msg_count))
+xtnd_xlst.c:      mp = &p->mlp[min-1];
+xtnd_xlst.c:      if (mp->del_flag) continue;
+xtnd_xlst.c:      (void)fseek(p->drop, (OFF_T)mp->offset, 0);
+xtnd_xlst.c:      (void)fgets (buffer,MAXMSGLINELEN,p->drop);
+xtnd_xlst.c:      while (fgets(buffer,MAXMSGLINELEN,p->drop)) {
+xtnd_xlst.c:          if (!strncasecmp(buffer,p->pop_parm[2],len))
+xtnd_xlst.c:            fprintf(p->output,"%d ",min);
+xtnd_xlst.c:            while (fgets(buffer,MAXMSGLINELEN,p->drop))
+xtnd_xlst.c:  (void)fputs(".\r\n",p->output);
+xtnd_xlst.c:  (void)fflush(p->output);
