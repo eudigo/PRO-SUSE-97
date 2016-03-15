@@ -1,0 +1,12 @@
+GBL = (DESCRIPTION =
+              (ADDRESS=
+                (COMMUNITY=world)
+                (PROTOCOL=tcp)
+                (HOST=oracle.gbl.com.br)
+                (PORT=1521)
+              )
+             (CONNECT_DATA=
+                (SID=gbl)
+                (GLOBAL_NAME=gbl.gbl.com.br)
+              )
+        )

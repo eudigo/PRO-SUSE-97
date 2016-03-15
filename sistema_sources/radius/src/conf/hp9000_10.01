@@ -1,0 +1,6 @@
+# System: HP-UX B.10.01 A 9000/712
+#
+# delete the -DNOSHADOW if you are using shadow passwords
+#
+CPPFLAGS	= -DNOSHADOW -DVSYSLOG
+LIBS		= -lndbm

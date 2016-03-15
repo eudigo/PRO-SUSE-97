@@ -1,0 +1,165 @@
+Date (OCIDate)
+
+The Oracle date format is mapped in C by the OCIDate type, which is an opaque C struct. Elements of the struct represent the year, month, day, hour, minute, and second of the date. The specific
+elements can be set and retrieved using the appropriate OCI functions. 
+
+The OCIDate datatype can be bound or defined directly using the external typecode SQLT_ODT in the bind or define call. 
+
+The OCI date manipulation functions are listed in the following tables, which are organized according to functionality. Unless otherwise specified, the term "date" in these tables refers to a value
+of type OCIDate. 
+
+       See Also: The prototypes and descriptions for all the functions are provided in Chapter 15, "OCI Datatype Mapping and Manipulation Functions". 
+
+Date Conversion Functions
+
+The following functions perform date conversion. 
+
+ Function  
+                                                              Purpose  
+ OCIDateToText()  
+                                                              convert date to string  
+ OCIDateFromText()  
+                                                              convert text string to date  
+ OCIDateZoneToZone()  
+                                                              convert date from one time zone to another  
+
+
+
+Date Assignment and Retrieval Functions
+
+The following functions retrieve and assign date elements. 
+
+ Function  
+                                                               Purpose  
+ OCIDateAssign()  
+                                                               OCIDate assignment  
+ OCIDateGetDate()  
+                                                               get the date portion of an OCIDate  
+ OCIDateSetDate()  
+                                                               set the date portion of an OCIDate  
+ OCIDateGetTime()  
+                                                               get the time portion of an OCIDate  
+ OCIDateSetTime()  
+                                                               set the time portion of an OCIDate  
+
+
+
+Date Arithmetic and Comparison Functions
+
+The following functions perform date arithmetic and comparison. 
+
+ Function  
+                                                           Purpose  
+ OCIDateAddDays()  
+                                                           add days  
+ OCIDateAddMonths()  
+                                                           add months  
+ OCIDateCompare()  
+                                                           compare dates  
+ OCIDateDaysBetween()  
+                                                           calculate the number of days between two dates  
+
+
+
+Date Information Accessor Functions
+
+The following functions access date information. 
+
+ Function  
+                                                             Purpose  
+ OCIDateLastDay()  
+                                                             the last day of the month  
+ OCIDateNextDay()  
+                                                             the first named day after a given date  
+ OCIDateSysDate()  
+                                                             the system date  
+
+
+
+Date Validity Checking Functions
+
+The following function checks date validity. 
+
+ Function  
+                                                          Purpose  
+ OCIDateCheck()  
+                                                          check whether a given date is valid  
+
+
+
+Date Example
+
+The following code provides examples of how to manipulate an attribute of type OCIDate using OCI calls. 
+
+#define FMT "DAY, MONTH DD, YYYY"
+#define LANG "American"
+struct person
+{
+OCIDate start_date;
+};
+typedef struct person person;
+
+OCIError *err;
+person *tim;
+sword status;                      /* error status */
+uword invalid;
+OCIDate last_day, next_day;
+text buf[100], last_day_buf[100], next_day_buf[100];
+ub4 buflen = sizeof(buf);
+     
+/* For this example, assume the OCIEnv and OCIError have been
+* initialized as described in Chapter 2. */
+/* Pin tim person object in the object cache. See Chapter 6 for
+* information about pinning. For this example, assume that
+* tim is pointing to the pinned object. */
+/* set the start date of tim */
+OCIDateSetTime(&tim->start_date,8,0,0);
+OCIDateSetDate(&tim->start_date,1990,10,5)
+
+/* check if the date is valid */
+if (OCIDateCheck(err, &tim->start_date, &invalid) != OCI_SUCCESS)
+/* error handling code */
+
+if (invalid)
+/* error handling code */
+
+/* get the last day of start_date's month */
+if (OCIDateLastDay(err, &tim->start_date, &last_day) != OCI_SUCCESS)
+/* error handling code */
+
+/* get date of next named day */
+if (OCIDateNextDay(err, &tim->start_date, "Wednesday",       strlen("Wednesday"), 
+&next_day) != OCI_SUCCESS)
+/* error handling code */
+/* convert dates to strings and print the information out */
+/* first convert the date itself*/
+buflen = sizeof(buf);
+if (OCIDateToText(err, &tim->start_date, FMT, sizeof(FMT)-1, LANG, 
+        sizeof(LANG)-1,                 &buflen, buf) != OCI_SUCCESS)
+/* error handling code */
+
+/* now the last day of the month */
+buflen = sizeof(last_day_buf);
+if (OCIDateToText(err, &last_day, FMT, sizeof(FMT)-1, LANG,       sizeof(LANG)-1, 
+&buflen, last_day_buf) != OCI_SUCCESS)
+/* error handling code */
+
+/* now the first Wednesday after this date */
+buflen = sizeof(next_day_out);
+if (OCIDateToText(err, &next_day, FMT, sizeof(FMT)-1, LANG,
+      sizeof(LANG)-1, &buflen, next_day_buf) != OCI_SUCCESS)
+/* error handling code */
+
+/* print out the info */
+printf("For: %s\n", buf);
+printf("The last day of the month is: %s\n", last_day_buf);
+printf("The next Wednesday is: %s\n", next_day_buf);
+
+
+The output will be: 
+
+For: Monday, May 13, 1996
+The last day of the month is: Friday, May 31
+The next Wednesday is: Wednesday, May 15
+
+Number (OCINumber)

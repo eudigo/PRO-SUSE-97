@@ -1,0 +1,6 @@
+# System: sun86_5.5 - SunOS 5.5.1 generic i86pc i386
+#
+# Solaris uses shadow passwords, so do not use -DNOSHADOW
+#
+CPPFLAGS	= -Dsys5
+LIBS            = -lsocket -lnsl

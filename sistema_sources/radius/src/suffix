@@ -1,0 +1,19 @@
+      if (strstr(req_name, "@gbl.com.br") != NULL) { /* user@gbl.com.br */
+
+         link = pair;
+
+         /* SUFFIX */
+
+         if ((pair=(VALUE_PAIR *)malloc(sizeof(VALUE_PAIR)))==(VALUE_PAIR *)NULL) {
+            log_err("userparse: system error: out of memory\n");
+            return (-1);
+         }
+
+         link->next = pair;
+
+         sprintf(pair->name,"Suffix");
+         pair->attribute = PW_SUFFIX;
+         pair->type = PW_TYPE_STRING;
+         sprintf(pair->strvalue,"@gbl.com.br");
+         pair->lvalue = strlen("@gbl.com.br");
+      }

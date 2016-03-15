@@ -1,0 +1,15 @@
+#---------------------------------------------------------------------------
+#
+# @(#)clients	1.1 2/21/96  Copyright 1991 Livingston Enterprises Inc
+#
+#---------------------------------------------------------------------------
+#
+#	This file contains a list of clients which are allowed to
+#	make authentication requests and their encryption key.
+#	The first field is a valid hostname.
+#	The second field (seperated by blanks or tabs) is the 
+#	encryption key.
+#
+#Client Name		Key
+#----------------	-------------------
+portmaster1		testing123

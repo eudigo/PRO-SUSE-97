@@ -1,0 +1,15 @@
+# System: alpha_T3.0 - OSF1 T3.0 307.2 alpha
+#
+# OSF/1 NDBM may have problems with large users files, we use GDBM instead.
+#
+# If you wish to use the OSF/1 system NDBM library instead of GDBM,
+# uncomment the first RADLIBS line and comment out the second RADLIBS line.
+#
+# GDBM source is available at no charge from the Free Software Foundation
+# at ftp://prep.ai.mit.edu/pub/gnu/ and is covered by the GNU Public License,
+# available at the same site.
+#
+CC=cc
+CPPFLAGS	= -DNOSHADOW -DVSYSLOG
+# RADLIBS		= -lndbm
+RADLIBS		= $(OBJDIR)/libgdbm.a

@@ -1,0 +1,116 @@
+#---------------------------------------------------------------------------
+#
+# @(#)users	1.2 5/20/97  Copyright 1991, 1997 Livingston Enterprises Inc
+#
+#---------------------------------------------------------------------------
+#
+#	This file contains security and configuration information for
+#	each user.  The first field is the user's name and can be up to
+#	8 characters in length.  This is followed (on the same line)
+#	with the list of authentication requirements for that user.
+#	This can include password, comm server name, comm server port
+#	number, and an expiration date of the user's password.  When an
+#	authentication request is received from the comm server, these
+#	values are tested.  Special users named "DEFAULT", "DEFAULT2",
+#	"DEFAULT3" can be created (and should be placed at the end of
+#	the user file) to specify what to do with users not contained
+#	in the user file.
+#
+#	Indented (with the tab character) lines following the first
+#	line indicate the configuration values to be passed back to
+#	the comm server to allow the initiation of a user session.
+#	This can include things like the PPP configuration values
+#	or the host to log the user onto.
+#
+#	Delete or comment out these examples before using this file!
+
+bob	Password = "testing", Expiration = "Dec 24 1995"
+	Service-Type = Framed-User,
+	Framed-Protocol = PPP,
+	Framed-IP-Address = 255.255.255.254,
+	Framed-Routing = None,
+	Filter-Id = "std.ppp",
+	Framed-MTU = 1500,
+	Framed-Compression = Van-Jacobson-TCP-IP
+
+mary	Password = "moretest"
+	Service-Type = Login-User,
+	Login-IP-Host = 172.16.2.7,
+	Login-Service = PortMaster
+
+stan	Password = "callme"
+	Service-Type = Callback-Login-User,
+	Login-IP-Host = timeshare1,
+	Login-Service = PortMaster,
+	Callback-Number = "9,1-800-555-1234"
+
+#
+# Example Menu User
+#
+
+bar	Auth-Type = System
+	Menu = "menu1"
+
+#
+# The following section illustrates how to use the new features in RADIUS 1.18
+# If all your users' passwords are in your UNIX passwd file, you could even
+# delete all the lines above and just run with the following section.
+#
+# Username Palex runs PPP if alex's UNIX password matches
+#
+DEFAULT	Auth-Type = System, Prefix = "P"
+	Service-Type = Framed-User,
+	Framed-Protocol = PPP,
+	Framed-IP-Address = 255.255.255.254,
+	Framed-MTU = 1500
+
+# Username Salex runs SLIP if alex's UNIX password matches
+DEFAULT	Auth-Type = System, Prefix = "S"
+	Service-Type = Framed-User,
+	Framed-Protocol = SLIP,
+	Framed-IP-Address = 255.255.255.254,
+	Framed-Compression = None
+
+# Username Calex runs CSLIP if alex's UNIX password matches
+DEFAULT	Auth-Type = System, Prefix = "C"
+	Service-Type = Framed-User,
+	Framed-Protocol = SLIP,
+	Framed-IP-Address = 255.255.255.254,
+	Framed-Compression = Van-Jacobson-TCP-IP
+
+# Username alex%ppp runs PPP if alex's UNIX password matches
+DEFAULT	Auth-Type = System, Suffix = "%ppp"
+	Service-Type = Framed-User,
+	Framed-Protocol = PPP,
+	Framed-IP-Address = 255.255.255.254,
+	Framed-MTU = 1500
+
+# Username alex%slip runs SLIP if alex's UNIX password matches
+DEFAULT	Auth-Type = System, Suffix = "%slip"
+	Service-Type = Framed-User,
+	Framed-Protocol = SLIP,
+	Framed-IP-Address = 255.255.255.254
+	Framed-Compression = None
+
+# Username alex%cslip runs CSLIP if alex's UNIX password matches
+DEFAULT	Auth-Type = System, Suffix = "%cslip"
+	Service-Type = Framed-User,
+	Framed-Protocol = SLIP,
+	Framed-IP-Address = 255.255.255.254,
+	Framed-Compression = Van-Jacobson-TCP-IP
+
+# Username alex runs PPP if alex uses PAP to authenticate and port autodetects
+DEFAULT	Auth-Type = System, Framed-Protocol = PPP
+	Service-Type = Framed-User,
+	Framed-Protocol = PPP,
+	Framed-IP-Address = 255.255.255.254,
+	Framed-MTU = 1500
+
+#
+# Anything else uses Rlogin to the host set for that port
+#
+DEFAULT	Auth-Type = System
+	Service-Type = Login-User,
+	Login-Service = Rlogin
+
+

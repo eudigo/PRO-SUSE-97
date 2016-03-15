@@ -1,0 +1,1268 @@
+/*
+ *
+ *	RADIUS
+ *	Remote Authentication Dial In User Service
+ *
+ *
+ *	Livingston Enterprises, Inc.
+ *	4464 Willow Road
+ *	Pleasanton, CA   94588
+ *
+ *	Copyright 1992-1996 Livingston Enterprises, Inc. All Rights Reserved.
+ *
+ *	This software is provided under license from Livingston
+ *	Enterprises, Inc., the terms and conditions of which are set
+ *	forth in a Software License Agreement that is contained in an
+ *	End User Agreement contained in the product packaging, and
+ *	electronically on the Livingston ftp site. This software may
+ *	only be used in conjunction with Livingston (or Livingston
+ *	authorized) products.  Livingston makes no warranties to any
+ *	licensee concerning the applicability of the software to
+ *	licensee's specific requirements or the suitability of the
+ *	software for any intended use.  Licensee shall not remove,
+ *	modify or alter any copyright and/or other proprietary rights
+ *	notice and must faithfully reproduce all such notices on any
+ *	copies or modifications to this software that it makes.
+ *
+ *	Livingston Enterprises, Inc. makes no representations about the
+ *	suitability of this software for any purpose.  It is provided
+ *	"as is" without express or implied warranty.
+ *
+ */
+
+static char sccsid[] =
+"$Id: users.c,v 1.25 1997/05/22 03:21:56 cdr Exp $ Copyright 1992 Livingston Enterprises Inc";
+
+#include	<sys/types.h>
+#include	<sys/socket.h>
+#include	<sys/time.h>
+#include	<netinet/in.h>
+
+#include	<stdio.h>
+#include	<netdb.h>
+#include	<pwd.h>
+#include	<time.h>
+#include	<ctype.h>
+#include	<errno.h>
+
+int		db_index;
+
+#include	"radius.h"
+#include	"users.h"
+
+#define		MAXBUF	1024
+
+extern char		*progname;
+extern int		debug_flag;
+extern int		errno;
+extern int		radius_dbm;
+extern char		*radius_dir;
+
+static	void fieldcpy();
+int  userparse();
+
+#define FIND_MODE_NAME	0
+#define FIND_MODE_REPLY	1
+#define FIND_MODE_SKIP	2
+#define FIND_MODE_FLUSH	3
+
+#ifdef RADIUSERSORACLE
+
+static text *oraname = (text *) "scott"; /* Nome do Usuario Oracle */
+static text *orapass = (text *) "tiger"; /* Senha do Usuario */
+
+/* Define comando SQL a ser usado no programa */
+static text *seleuser = (text *) "SELECT userpass FROM users WHERE username = :username";
+
+#define TAM_MAX_AUTH_NAME 32
+
+char username[TAM_MAX_AUTH_NAME];   /* Nome do Usuario a ser Autenticado */
+
+#define TAM_MAX_AUTH_PASS 13
+
+char userpass[TAM_MAX_AUTH_PASS+1]; /* Senha do Usuario */
+
+static OCIEnv    *envhp;  /* Environment */
+static OCIServer *srvhp;  /* Server */
+static OCIError  *errhp;  /* Error */
+static OCISvcCtx *svchp;  /* Service */
+static OCIStmt   *stmthp; /* Statement */
+
+static OCIDefine *defnp = (OCIDefine *) 0; /* Define (Output Variable) */
+
+static OCIBind   *bindp = (OCIBind *) 0;   /* Bind (Input Variable) */
+
+static sword status;
+
+#endif /* RADIUSERSORACLE */
+
+/*************************************************************************
+ *
+ *	Function: user_find
+ *
+ *	Purpose: Find the named user in the database.  Create the
+ *		 set of attribute-value pairs to check and reply with
+ *		 for this user from the database.
+ *
+ *************************************************************************/
+
+int
+user_find(req_name, auth_name, check_pairs, reply_pairs, user_desc)
+char		*req_name;
+char		*auth_name;
+VALUE_PAIR	**check_pairs;
+VALUE_PAIR	**reply_pairs;
+USER_DESC	*user_desc;
+{
+	char		buffer[MAXBUF];
+	char		*ptr;
+	int		req_namelen;
+	int		mode;
+	int		user_auth_name();
+	VALUE_PAIR	*check_first;
+	VALUE_PAIR	*reply_first;
+	datum		named;
+	datum		contentd;
+
+	/* 
+	 * Check for valid input, zero length names not permitted 
+	 */
+
+	mode = FIND_MODE_NAME;
+
+	ptr=req_name;
+	while (*ptr != '\0') {
+		if (*ptr == ' ' || *ptr == '\t') {
+#ifdef SPACECHOP
+			*ptr = '\0';
+#else
+			log_err("user_find: space in username <%s> rejected\n",req_name);
+			return(-1);
+#endif
+		} else {
+			ptr++;
+		}
+	}
+
+	req_namelen=strlen(req_name);
+
+	if (req_namelen < 1) {
+		log_err("user_find: zero length username rejected\n");
+		return(-1);
+	}
+
+	check_first = (VALUE_PAIR *)NULL;
+	reply_first = (VALUE_PAIR *)NULL;
+
+	if (radius_dbm != 0) {
+		for (;;) {
+			if (db_index == -1) {
+				named.dptr = req_name;
+				named.dsize = strlen(req_name);
+			} else if (db_index == 0) {
+				sprintf(buffer, "DEFAULT");
+				named.dptr = buffer;
+				named.dsize = strlen(buffer);
+			} else {
+				sprintf(buffer, "DEFAULT%d", db_index);
+				named.dptr = buffer;
+				named.dsize = strlen(buffer);
+			}
+			db_index++;
+
+#ifdef NDBM
+			contentd = dbm_fetch(user_desc, named);
+#else /* not NDBM */
+			contentd = fetch(named);
+#endif /* NDBM */
+			if(contentd.dsize == 0) {
+				if (db_index == 0) {
+					/*
+					 * the request id failed
+					 * lets try the defaults
+					 */
+					continue;
+				}
+				return(-1);
+			}
+
+			/*
+			 * Parse the check values
+			 */
+			if (contentd.dsize > MAXBUF) {
+				log_err("user_find: user record for user %s is too big, %d exceeds %d\n", req_name,contentd.dsize,MAXBUF);
+				return(-1);
+			}
+			memcpy(buffer,contentd.dptr,contentd.dsize);
+			buffer[contentd.dsize] = '\0';
+			ptr = buffer;
+
+			if(userparse(ptr, &check_first) != 0) {
+				log_err("user_find: unable to parse check-items in dbm entry for user %s\n", req_name);
+				pairfree(check_first);
+				return(-1);
+			}
+
+			/*
+			 * set authentication name
+			 */
+			if (user_auth_name( req_name,
+					auth_name,
+					check_first) != 0) {
+				pairfree(check_first);
+				check_first = (VALUE_PAIR *)NULL;
+				continue;
+			}
+			break;
+		}
+
+		while(*ptr != '\n' && *ptr != '\0') {
+			ptr++;
+		}
+		if(*ptr == '\0') {	/* no reply-items */
+			*check_pairs = check_first;
+			*reply_pairs = (VALUE_PAIR *)NULL;
+			return(0);
+		}
+		ptr++;
+		/*
+		 * Parse the reply values
+		 */
+		if(userparse(ptr, &reply_first) != 0) {
+			log_err("user_find: unable to parse reply-items in dbm entry for user %s\n", req_name);
+			pairfree(check_first);
+			pairfree(reply_first);
+			return(-1);
+		}
+	} else {
+	while(fgets(buffer, sizeof(buffer),
+				(FILE *)user_desc) != (char *)NULL) {
+		if(mode == FIND_MODE_NAME) {
+			/*
+			 * Find the entry starting with the users name
+			 */
+			if((strncmp(buffer, req_name, req_namelen) == 0
+					&& (buffer[req_namelen] == ' '
+					|| buffer[req_namelen] == '\t'))
+					|| strncmp(buffer, "DEFAULT", 7) == 0) {
+				if(strncmp(buffer, "DEFAULT", 7) == 0) {
+					ptr = &buffer[7];
+					/*
+					 * advance pointer to next white space
+					 */
+					while (isspace(*ptr) == 0) {
+						ptr++;
+					}
+				}
+				else {
+					ptr = &buffer[req_namelen];
+				}
+				/*
+				 * Parse the check values
+				 */
+				if(userparse(ptr, &check_first) != 0) {
+					log_err("user_find: unable to parse check-items for user %s\n", req_name);
+					pairfree(check_first);
+					return(-1);
+				}
+				/*
+				 * set authentication name
+				 */
+				if (user_auth_name( req_name,
+						auth_name,
+						check_first) != 0) {
+					pairfree(check_first);
+					check_first = (VALUE_PAIR *)NULL;
+					continue;
+				}
+				mode = FIND_MODE_REPLY;
+			}
+		}
+		else {
+			if(*buffer == ' ' || *buffer == '\t') {
+				/*
+				 * Parse the reply values
+				 */
+				if(userparse(buffer, &reply_first) != 0) {
+					log_err("user_find: unable to parse reply-items for user %s\n", req_name);
+					pairfree(check_first);
+					pairfree(reply_first);
+					return(-1);
+				}
+			}
+			else {
+				/* We are done */
+				*check_pairs = check_first;
+				*reply_pairs = reply_first;
+				return(0);
+			}
+		}
+	}
+	}
+	/* Update the callers pointers */
+	if(reply_first != (VALUE_PAIR *)NULL) {
+		*check_pairs = check_first;
+		*reply_pairs = reply_first;
+		return(0);
+	}
+	return(-1);
+}
+
+/*************************************************************************
+ *
+ *	Function: user_auth_name
+ *
+ *	Purpose: Set authentication name, stripping pre/suffix
+ *
+ *************************************************************************/
+
+int
+user_auth_name(req_name, auth_name, check_first)
+char		*req_name;
+char		*auth_name;
+VALUE_PAIR	*check_first;
+{
+	VALUE_PAIR	*fix;
+	VALUE_PAIR	*get_attribute();
+	int		req_len;
+	int		len;
+
+	req_len = strlen(req_name);
+	if ((fix = get_attribute(check_first, PW_PREFIX))
+						!= (VALUE_PAIR *)NULL) {
+		len = strlen(fix->strvalue);
+		if (req_len <= len || (strncmp(req_name,
+						fix->strvalue, len) != 0)) {
+			return(-1);
+		}
+		/*
+		 * strip prefix from request name
+		 */
+		req_name += len;
+		req_len -= len;
+	}
+	if ((fix = get_attribute(check_first, PW_SUFFIX))
+			!= (VALUE_PAIR *)NULL) {
+		len = strlen(fix->strvalue);
+		if (req_len <= len || (strncmp(&req_name[req_len - len],
+						fix->strvalue, len) != 0)) {
+			return(-1);
+		}
+		/*
+		 * strip suffix from request name
+		 */
+		req_len -= len;
+	}
+	strncpy(auth_name, req_name, req_len);
+	auth_name[req_len] = '\0';
+	return(0);
+}
+
+#define PARSE_MODE_NAME		0
+#define PARSE_MODE_EQUAL	1
+#define PARSE_MODE_VALUE	2
+#define PARSE_MODE_INVALID	3
+
+/*************************************************************************
+ *
+ *	Function: userparse
+ *
+ *	Purpose: Parses the buffer to extract the attribute-value pairs.
+ *
+ *************************************************************************/
+
+int
+userparse(buffer, first_pair)
+char		*buffer;
+VALUE_PAIR	**first_pair;
+{
+	int		mode;
+	int		atoi();
+	char		attrstr[64];
+	char		valstr[256];
+	DICT_ATTR	*attr;
+	DICT_ATTR	*dict_attrfind();
+	DICT_VALUE	*dval;
+	DICT_VALUE	*dict_valfind();
+	VALUE_PAIR	*pair;
+	VALUE_PAIR	*link;
+	UINT4		ipstr2long();
+	UINT4		get_ipaddr();
+	UINT4		user_gettime();
+	struct tm	*tm;
+	time_t		timeval;
+
+	mode = PARSE_MODE_NAME;
+	while(*buffer != '\n' && *buffer != '\0') {
+
+		if(*buffer == ' ' || *buffer == '\t' || *buffer == ',') {
+			buffer++;
+			continue;
+		}
+
+		switch(mode) {
+
+		case PARSE_MODE_NAME:
+			/* Attribute Name */
+			fieldcpy(attrstr, &buffer);
+			if((attr = dict_attrfind(attrstr)) ==
+						(DICT_ATTR *)NULL) {
+				return(-1);
+			}
+			mode = PARSE_MODE_EQUAL;
+			break;
+
+		case PARSE_MODE_EQUAL:
+			/* Equal sign */
+			if(*buffer == '=') {
+				mode = PARSE_MODE_VALUE;
+				buffer++;
+			}
+			else {
+				return(-1);
+			}
+			break;
+
+		case PARSE_MODE_VALUE:
+			/* Value */
+			fieldcpy(valstr, &buffer);
+
+			if((pair = (VALUE_PAIR *)malloc(sizeof(VALUE_PAIR))) ==
+						(VALUE_PAIR *)NULL) {
+				log_err("userparse: system error: out of memory\n");
+				return(-1);
+			}
+			strcpy(pair->name, attr->name);
+			pair->attribute = attr->value;
+			pair->type = attr->type;
+
+			switch(pair->type) {
+
+			case PW_TYPE_STRING:
+				strcpy(pair->strvalue, valstr);
+				pair->lvalue = strlen(valstr);
+				break;
+
+			case PW_TYPE_INTEGER:
+				if(isdigit(*valstr)) {
+					pair->lvalue = atoi(valstr);
+				}
+				else if((dval = dict_valfind(valstr)) ==
+							(DICT_VALUE *)NULL) {
+					free(pair);
+					return(-1);
+				}
+				else {
+					pair->lvalue = dval->value;
+				}
+				break;
+
+			case PW_TYPE_IPADDR:
+				pair->lvalue = get_ipaddr(valstr);
+				break;
+
+			case PW_TYPE_DATE:
+                                timeval = time(0);
+                                tm = localtime(&timeval);
+				if (user_gettime(valstr, tm) < 0) {
+					pair->lvalue = 0;
+					log_err("invalid expiration format \"%s\" rejected\n",valstr);
+				} else {
+#ifdef TIMELOCAL
+				pair->lvalue = (UINT4)timelocal(tm);
+#else /* TIMELOCAL */
+				pair->lvalue = (UINT4)mktime(tm);
+#endif /* TIMELOCAL */
+				}
+				break;
+
+			default:
+				free(pair);
+				return(-1);
+			}
+			pair->next = (VALUE_PAIR *)NULL;
+			if(*first_pair == (VALUE_PAIR *)NULL) {
+				*first_pair = pair;
+			}
+			else {
+				link = *first_pair;
+				while(link->next != (VALUE_PAIR *)NULL) {
+					link = link->next;
+				}
+				link->next = pair;
+			}
+			mode = PARSE_MODE_NAME;
+			break;
+
+		default:
+			mode = PARSE_MODE_NAME;
+			break;
+		}
+	}
+	return(0);
+}
+
+/*************************************************************************
+ *
+ *	Function: fieldcpy
+ *
+ *	Purpose: Copy a data field from the buffer.  Advance the buffer
+ *		 past the data field.
+ *
+ *************************************************************************/
+
+static	void
+fieldcpy(string, uptr)
+char	*string;
+char	**uptr;
+{
+	char	*ptr;
+
+	ptr = *uptr;
+	if(*ptr == '"') {
+		ptr++;
+		while(*ptr != '"' && *ptr != '\0' && *ptr != '\n') {
+			*string++ = *ptr++;
+		}
+		*string = '\0';
+		if(*ptr == '"') {
+			ptr++;
+		}
+		*uptr = ptr;
+		return;
+	}
+
+	while(*ptr != ' ' && *ptr != '\t' && *ptr != '\0' && *ptr != '\n' &&
+						*ptr != '=' && *ptr != ',') {
+			*string++ = *ptr++;
+	}
+	*string = '\0';
+	*uptr = ptr;
+	return;
+}
+
+#ifdef PASSCHANGE
+/*************************************************************************
+ *
+ *	Function: user_update
+ *
+ *	Purpose: Updates a user in the database.  Replaces the original
+ *		 entry with the name, the list of check items, and the
+ *		 list of reply items which are supplied.
+ *
+ *************************************************************************/
+
+int
+user_update(name, user_check, user_reply)
+char		*name;
+VALUE_PAIR	*user_check;
+VALUE_PAIR	*user_reply;
+{
+	FILE		*oldfd;
+	FILE		*userfd;
+	char		buffer[256];
+	char		oldfile[256];
+	char		newfile[256];
+	int		namelen;
+	int		mode;
+	void		fprint_attr_val();
+
+	sprintf(oldfile, "%s/%s", radius_dir, RADIUS_USERS);
+	sprintf(newfile, "%s/%s", radius_dir, RADIUS_HOLD);
+
+	/* Open the old user file */
+	if((oldfd = fopen(oldfile, "r")) == (FILE *)NULL) {
+		log_err("user_update: could not read users file %s\n",oldfile);
+		return(-1);
+	}
+
+	/* Open the new user file */
+	if((userfd = fopen(newfile, "w")) == (FILE *)NULL) {
+		log_err("user_update: could not write to %s\n", newfile);
+		fclose(oldfd);
+		return(-1);
+	}
+
+	mode = FIND_MODE_NAME;
+	namelen = strlen(name);
+
+	/* Copy the old to the new, only recreating the changed user */
+	while(fgets(buffer, sizeof(buffer), oldfd) != (char *)NULL) {
+		if(mode == FIND_MODE_NAME) {
+			if((strncmp(buffer, name, namelen) == 0 &&
+		 	 (buffer[namelen] == ' ' || buffer[namelen] == '\t'))) {
+
+				/* Write our new information */
+				fprintf(userfd, "%s\t", name);
+				while(user_check != (VALUE_PAIR *)NULL) {
+					fprint_attr_val(userfd, user_check);
+					if(user_check->next !=
+							(VALUE_PAIR *)NULL) {
+						fprintf(userfd, ", ");
+					}
+					user_check = user_check->next;
+				}
+				fprintf(userfd, "\n\t");
+				while(user_reply != (VALUE_PAIR *)NULL) {
+					fprint_attr_val(userfd, user_reply);
+					if(user_reply->next !=
+							(VALUE_PAIR *)NULL) {
+						fprintf(userfd, ",\n\t");
+					}
+					user_reply = user_reply->next;
+				}
+				fprintf(userfd, "\n");
+				mode = FIND_MODE_SKIP;
+			}
+			else {
+				fputs(buffer, userfd);
+			}
+		}
+		else if(mode == FIND_MODE_SKIP) {
+			if(*buffer != ' ' && *buffer != '\t') {
+				fputs(buffer, userfd);
+				mode = FIND_MODE_FLUSH;
+			}
+		}
+		else {
+			fputs(buffer, userfd);
+		}
+	}
+	fclose(oldfd);
+	fclose(userfd);
+	if (rename(newfile,oldfile) != 0) {
+		log_err("user_update: unable to rename %s to %s after updating user %s; error %d\n",newfile,oldfile,name,errno);
+		return(-1);
+	}
+	return(0);
+}
+
+#endif	/* PASSCHANGE */
+
+/*************************************************************************
+ *
+ *	Function: user_prtime
+ *
+ *	Purpose: Turns printable string into correct tm struct entries
+ *
+ *************************************************************************/
+
+static char *months[] = {
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+UINT4
+user_gettime(valstr, tm)
+char		*valstr;
+struct tm	*tm;
+{
+	int	i;
+	int	atoi();
+
+	/* Get the month */
+	for(i = 0;i < 12;i++) {
+		if(strncmp(months[i], valstr, 3) == 0) {
+			tm->tm_mon = i;
+			i = 13;
+		}
+	}
+
+	/* Get the Day */
+	tm->tm_mday = atoi(&valstr[4]);
+
+	/* Now the year */
+	tm->tm_year = atoi(&valstr[7]) - 1900;
+
+	/* Midnight */
+	tm->tm_sec = 0;
+	tm->tm_min = 0;
+	tm->tm_hour = 0;
+	
+	/* if date makes no sense return failure */
+	if (i == 12 || tm->tm_mday < 1 || tm->tm_mday > 31 ||
+	    tm->tm_year < 70) {
+		return(-1);
+	} else {
+		return(0);
+	}
+}
+
+/*************************************************************************
+ *
+ *	Function: user_open
+ *
+ *	Purpose: open the users file
+ *
+ *************************************************************************/
+
+USER_DESC *
+user_open(void)
+{
+	USER_DESC	*user_desc;
+	char		buffer[1024];
+	extern FILE	*user_open_flat(char *);
+
+	sprintf(buffer, "%s/%s", radius_dir, RADIUS_USERS);
+
+	if (radius_dbm == 0) {
+		return( (USER_DESC *)user_open_flat(buffer) );
+	}
+
+# ifdef NDBM
+	if((user_desc = dbm_open(buffer, O_RDONLY, 0)) == (USER_DESC *)NULL)
+# else /* not NDBM */
+	if(dbminit(buffer) != 0)
+# endif /* NDBM */
+	{
+		log_err("user_open: could not read user dbm file %s\n", buffer);
+		return((USER_DESC *)NULL);
+	}
+	db_index = -1;
+	return(user_desc);
+}
+
+FILE *
+user_open_flat(file_name)
+char	*file_name;
+{
+	FILE	*user_desc;
+
+	/*
+	 * Open the user table
+	 */
+	if((user_desc = fopen(file_name, "r")) == (FILE *)NULL) {
+		log_err("user_open: could not read user file %s\n", file_name);
+		return((FILE *)NULL);
+	}
+	return(user_desc);
+}
+
+/*************************************************************************
+ *
+ *	Function: user_close
+ *
+ *	Purpose: close the users file
+ *
+ *************************************************************************/
+
+void
+user_close(user_desc)
+USER_DESC	*user_desc;
+
+{
+	if (radius_dbm != 0) {
+# ifdef NDBM
+		dbm_close(user_desc);
+# else  /* not NDBM */
+		dbmclose();
+# endif /* NDBM */
+	} else {
+		fclose((FILE *)user_desc);
+	}
+}
+
+#ifdef RADIUSERSORACLE
+
+/*************************************************************************
+*
+*	Function: orauser_error
+*
+*	Purpose: Grava no arquivo de log o erro informado pelo Oracle. 
+*
+*************************************************************************/
+
+void
+orauser_error(errhp, status)
+OCIError *errhp;
+sword    status;
+{
+   text errbuff[512];
+   sb4  errcode = 0;
+
+   switch (status)
+   {
+   case OCI_SUCCESS:
+      break;
+   case OCI_SUCCESS_WITH_INFO:
+      log_err("Error - OCI_SUCCESS_WITH_INFO\n");
+      break;
+   case OCI_NEED_DATA:
+      log_err("Error - OCI_NEED_DATA\n");
+      break;
+   case OCI_NO_DATA:
+      log_err("Error - OCI_NO_DATA\n");
+      break;
+   case OCI_ERROR:
+      (void) OCIErrorGet((dvoid *) errhp, (ub4) 1, (text *) NULL, &errcode, errbuff, (ub4) sizeof(errbuff), OCI_HTYPE_ERROR);
+      log_err("Error - OCI_ERROR - %.*s\n",512,errbuff);
+      break;
+   case OCI_INVALID_HANDLE:
+      log_err("Error - OCI_INVALID_HANDLE\n");
+      break;
+   case OCI_STILL_EXECUTING:
+      log_err("Error - OCI_STILL_EXECUTING\n");
+      break;
+   case OCI_CONTINUE:
+      log_err("Error - OCI_CONTINUE\n");
+      break;
+   default:
+      break;
+   }
+}
+
+/*************************************************************************
+*
+*	Function: orauser_close
+*
+*	Purpose: Libera Handles Alocados Previamente e Desconecta Servidor
+*
+*************************************************************************/
+
+void
+orauser_close(void)
+{
+   /* Libera Handle de Statement */
+   if (stmthp)
+      orauser_error(errhp, OCIHandleFree((dvoid *) stmthp, OCI_HTYPE_STMT));
+
+   /* Desconecta do Servidor Oracle */
+   if (errhp)
+      (void) OCIServerDetach(srvhp, errhp, OCI_DEFAULT);
+
+   /* Libera Handle de Servidor */
+   if (srvhp)
+      orauser_error(errhp, OCIHandleFree((dvoid *) srvhp, OCI_HTYPE_SERVER));
+
+   /* Libera Handle de Servico */
+   if (svchp)
+      (void) OCIHandleFree((dvoid *) svchp, OCI_HTYPE_SVCCTX);
+
+   /* Libera Handle de Erro */
+   if (errhp)
+      (void) OCIHandleFree((dvoid *) errhp, OCI_HTYPE_ERROR);
+}
+
+/*************************************************************************
+*
+*	Function: orauser_open
+*
+*	Purpose: Inicializa Processo e Ambiente OCI, Aloca Handles,
+*                Conecta ao Servidor e Inicia Sessao de Usuario.
+*
+*************************************************************************/
+
+int
+orauser_open(void)
+{
+   OCISession *usrhp = (OCISession *) 0;
+
+   /* Inicializa processo OCI */
+
+   (void) OCIInitialize((ub4) OCI_DEFAULT, (dvoid *) 0, (dvoid * (*)(dvoid *, size_t)) 0, (dvoid * (*)(dvoid *, dvoid *, size_t)) 0, (void (*)(dvoid *, dvoid *)) 0);
+
+   /* Inicializa ambiente OCI */
+
+   (void) OCIEnvInit((OCIEnv **) &envhp, OCI_DEFAULT, (size_t) 0, (dvoid **) 0);
+
+   /* Aloca Handle de Erro - Handle e' vinculado a Environment */
+
+   (void) OCIHandleAlloc((dvoid *) envhp, (dvoid **) &errhp, OCI_HTYPE_ERROR, (size_t) 0, (dvoid **) 0);
+
+   /* Aloca Handle de Servidor - Handle e' vinculado a Environment */
+
+   (void) OCIHandleAlloc((dvoid *) envhp, (dvoid **) &srvhp, OCI_HTYPE_SERVER, (size_t) 0, (dvoid **) 0);
+
+   /* Aloca Handle de Servico - Handle e' vinculado a Environment */
+
+   (void) OCIHandleAlloc((dvoid *) envhp, (dvoid **) &svchp, OCI_HTYPE_SVCCTX, (size_t) 0, (dvoid **) 0);
+
+   /* Conecta ao Servidor Oracle */
+
+   log_err("Conectando ao Servidor Oracle\n");
+
+   (void) OCIServerAttach(srvhp, errhp, "gbl", strlen("gbl"), 0);
+
+   /* Atribui o Contexto de Servidor no Contexto de Servico */
+   /* O Handle de Servidor e' vinculado a Service */
+
+   (void) OCIAttrSet((dvoid *) svchp, OCI_HTYPE_SVCCTX, (dvoid *) srvhp, (ub4) 0, OCI_ATTR_SERVER, (OCIError *) errhp);
+
+   /* Aloca Handle de Sessao - Handle e' vinculado a Environment */
+
+   (void) OCIHandleAlloc((dvoid *) envhp, (dvoid **) &usrhp, (ub4) OCI_HTYPE_SESSION, (size_t) 0, (dvoid **) 0);
+
+   /* Informa, no Handle de Sessao, o Nome do Usuario Oracle */
+
+   (void) OCIAttrSet((dvoid *) usrhp, (ub4) OCI_HTYPE_SESSION, (dvoid *) oraname, (ub4) strlen((char *) oraname), (ub4) OCI_ATTR_USERNAME, errhp);
+
+   /* Informa, no Handle de Sessao, a Senha do Usuario */
+
+   (void) OCIAttrSet((dvoid *) usrhp, (ub4) OCI_HTYPE_SESSION, (dvoid *) orapass, (ub4) strlen((char *) orapass), (ub4) OCI_ATTR_PASSWORD, errhp);
+
+   /* Inicia Sessao de Usuario */
+   /* O Handle de Sessao e' vinculado a Service */
+
+   log_err("Iniciando Sessao de Usuario: scott/tiger\n");
+
+   orauser_error(errhp, OCISessionBegin(svchp, errhp, usrhp, OCI_CRED_RDBMS, (ub4) OCI_DEFAULT));
+
+   /* Inicializa contexto para Statement */
+
+   (void) OCIAttrSet((dvoid *) svchp, (ub4) OCI_HTYPE_SVCCTX, (dvoid *) usrhp, (ub4) 0, (ub4) OCI_ATTR_SESSION, errhp);
+
+   /* Aloca Handle de Statement */
+
+   log_err("Alocando Handle de Statement\n");
+
+   orauser_error(errhp, OCIHandleAlloc((dvoid *) envhp, (dvoid **) &stmthp, OCI_HTYPE_STMT, (size_t) 0, (dvoid **) 0));
+
+   /* Prepara a execucao do comando, atribuindo comando previamente definido */
+
+   log_err("Preparando Execucao do Comando\n");
+
+   orauser_error(errhp, OCIStmtPrepare(stmthp, errhp, seleuser, (ub4) strlen((char *) seleuser), (ub4) OCI_NTV_SYNTAX, (ub4) OCI_DEFAULT));
+
+   /* Bind the input variable (username) */
+   /* O Handle de Bind e' alocado automaticamente, e vinculado a Statement */
+
+   log_err("Bind the Input Variable\n");
+
+   if (status = OCIBindByName(stmthp, &bindp, errhp, (text *) ":username", strlen(":username"), (ub1 *) username, TAM_MAX_AUTH_NAME, SQLT_AFC, (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT))
+{
+   orauser_error(errhp, status);
+   orauser_close();
+   return (-1);
+}
+
+   log_err("Define the Output Variable\n");
+
+   /* Define the output variable (password) */
+   /* O Handle de Define e' alocado automaticamente, e vinculado a Statement */
+
+   if (status = OCIDefineByPos(stmthp, &defnp, errhp, 1, (dvoid *) userpass, TAM_MAX_AUTH_PASS+1, SQLT_STR, (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, OCI_DEFAULT))
+{
+   orauser_error(errhp, status);
+   orauser_close();
+   return (-1);
+}
+
+   db_index = -1;
+
+   return (0);
+}
+
+/*************************************************************************
+*
+*	Function: orauser_find
+*
+*	Purpose: Pesquisa o Nome do Usuario na Base de Dados Oracle.
+*                Cria as estruturas de pares "Atributo-Valor"  para
+*                autenticar (check) e autorizar/configurar (reply)
+*                este usuario a partir das informacoes armazenadas
+*                em seu registro.
+*
+*************************************************************************/
+
+int
+orauser_find(req_name, auth_name, check_pairs, reply_pairs)
+char *req_name;
+char *auth_name;
+VALUE_PAIR **check_pairs;
+VALUE_PAIR **reply_pairs;
+{
+   char		buffer[MAXBUF];
+   char		*ptr;
+   int		req_namelen;
+   int		mode;
+   int          i;
+   int		user_auth_name();
+   VALUE_PAIR	*check_first;
+   VALUE_PAIR	*reply_first;
+   VALUE_PAIR   *pair;
+   VALUE_PAIR   *link;
+   datum	contentd;
+
+/* 
+ * Check for valid input, zero length names not permitted 
+ */
+
+   mode = FIND_MODE_NAME;
+
+   ptr=req_name;
+   while (*ptr != '\0') {
+      if (*ptr == ' ' || *ptr == '\t') {
+#ifdef SPACECHOP        /* Trunca o nome */
+         *ptr = '\0';
+#else                   /* Erro: Rejeitado */
+         log_err("user_find: space in username <%s> rejected\n",req_name);
+         return(-1);
+#endif
+      } else {
+         ptr++;
+      }
+   }
+
+   req_namelen=strlen(req_name);
+
+   if (req_namelen < 1) {
+      log_err("user_find: zero length username rejected\n");
+      return(-1);
+   }
+
+   check_first = (VALUE_PAIR *)NULL;
+   reply_first = (VALUE_PAIR *)NULL;
+
+   for (;;) {
+      if (db_index == -1) {
+         strncpy(username,req_name,TAM_MAX_AUTH_NAME);
+         for (i = req_namelen; i < TAM_MAX_AUTH_NAME; i++) {
+             username[i] = ' ';
+         }
+      } else if (db_index == 0) {
+         snprintf(username,TAM_MAX_AUTH_NAME,"DEFAULT");
+         for (i = strlen(username); i < TAM_MAX_AUTH_NAME; i++) {
+             username[i] = ' ';
+         }
+      } else {
+         snprintf(username,TAM_MAX_AUTH_NAME,"DEFAULT%d",db_index);
+         for (i = strlen(username); i < TAM_MAX_AUTH_NAME; i++) {
+             username[i] = ' ';
+         }
+      }
+      db_index++;
+
+      /* Executa o comando SQL - Statement */
+
+      log_err("Executando o comando SQL\n");
+
+      if ((status = OCIStmtExecute(svchp, stmthp, errhp, (ub4) 1, (ub4) 0, (CONST OCISnapshot *) NULL, (OCISnapshot *) NULL, OCI_DEFAULT)) && (status != OCI_NO_DATA)) {
+         orauser_error(errhp, status);
+         orauser_close();
+         return (-1);
+      }
+
+      if (status == OCI_NO_DATA) { /* Se Usuario nao Encontrado */
+
+         log_err("Status do Comando SQL = OCI_NO_DATA. Usuario: %s Tamanho: %d\n",username,strlen(username));
+
+         if (db_index == 0) { /* E e' o nome que consta na requisicao */
+            /*
+             * the request id failed
+             * lets try the defaults
+             */
+
+            log_err("Comando SELECT nao encontrou o Usuario: %s Vai tentar o usuario DEFAULT\n",username);
+
+             continue;
+         }
+         return(-1);
+      }
+
+      log_err("Comando SELECT encontrou o Usuario: %s\n",username);
+
+      /*
+       * Parse the check values (A MODIFICAR)
+       *
+
+      if (strlen(userbuff) > MAXBUF) {
+         log_err("user_find: user record for user %s is too big, %d exceeds %d\n", req_name,contentd.dsize,MAXBUF);
+         return(-1);
+      }
+      memcpy(buffer,contentd.dptr,contentd.dsize);
+      buffer[contentd.dsize] = '\0';
+      ptr = buffer;
+
+      if (userparse(ptr, &check_first) != 0) {
+         log_err("user_find: unable to parse check-items in dbm entry for user %s\n", req_name);
+         pairfree(check_first);
+         return(-1);
+      }
+  
+       */
+      
+      log_err("Parsing Check Values...\n");
+
+      /* PASSWORD */
+
+      if ((pair=(VALUE_PAIR *)malloc(sizeof(VALUE_PAIR)))==(VALUE_PAIR *)NULL) {
+         log_err("userparse: system error: out of memory\n");
+         return (-1);
+      }
+
+      check_first = pair;
+      sprintf(pair->name,"Password");
+      pair->attribute = PW_PASSWORD;
+      pair->type = PW_TYPE_STRING;
+      for (i = 0; i < TAM_MAX_AUTH_PASS; i++) {
+          if (userpass[i] == ' ') userpass[i] = '\0';
+      };
+      strcpy(pair->strvalue,userpass);
+      pair->lvalue = strlen(userpass);
+
+      link = pair;
+
+      /* AUTH-TYPE = LOCAL *
+
+      if ((pair=(VALUE_PAIR *)malloc(sizeof(VALUE_PAIR)))==(VALUE_PAIR *)NULL) {
+         log_err("userparse: system error: out of memory\n");
+         return (-1);
+      }
+
+      link->next = pair;
+
+      sprintf(pair->name,"Auth-Type");
+      pair->attribute = PW_AUTHTYPE;
+      pair->type = PW_TYPE_INTEGER;
+      pair->lvalue = PW_AUTHTYPE_LOCAL; */
+      pair->next = (VALUE_PAIR *)NULL;
+
+      /*
+       * set authentication name
+       */
+
+      if (user_auth_name(req_name, auth_name, check_first) != 0) {
+         pairfree(check_first);
+         check_first = (VALUE_PAIR *)NULL;
+         continue;
+      }
+
+      break;
+
+   } /* for */
+
+   for (link = check_first; link != (VALUE_PAIR *)NULL; link = link->next) {
+       log_err("Nome: %s, Atributo: %d, Tipo: %d, Lvalue: %d, StrValue: %s\n",link->name,link->attribute,link->type,link->lvalue,link->strvalue);
+   };
+
+   log_err("OK: Check Values Parsed\n");
+
+/*
+
+   while (*ptr != '\n' && *ptr != '\0') {
+      ptr++;
+   }
+   if (*ptr == '\0') {
+
+       * no reply-items * 
+
+      *check_pairs = check_first;
+      *reply_pairs = (VALUE_PAIR *)NULL;
+      return(0);
+   }
+
+   ptr++;
+
+    *
+    * Parse the reply values
+    *
+
+   if (userparse(ptr, &reply_first) != 0) {
+      log_err("user_find: unable to parse reply-items in dbm entry for user %s\n", req_name);
+      pairfree(check_first);
+      pairfree(reply_first);
+      return(-1);
+   }
+
+*/
+      
+      log_err("Parsing Reply Values...\n");
+
+      /* USER-SERVICE-TYPE */
+
+      if ((pair=(VALUE_PAIR *)malloc(sizeof(VALUE_PAIR)))==(VALUE_PAIR *)NULL) {
+         log_err("userparse: system error: out of memory\n");
+         return (-1);
+      }
+
+      reply_first = pair;
+      sprintf(pair->name,"Service-Type");
+      pair->attribute = PW_USER_SERVICE_TYPE;
+      pair->type = PW_TYPE_INTEGER;
+      pair->lvalue = PW_DIALBACK_LOGIN_USER;
+
+      link = pair;
+
+      if ((pair=(VALUE_PAIR *)malloc(sizeof(VALUE_PAIR)))==(VALUE_PAIR *)NULL) {
+         log_err("userparse: system error: out of memory\n");
+         return (-1);
+      }
+
+      link->next = pair;
+
+      /* LOGIN-IP-HOST */
+
+      sprintf(pair->name,"Login-IP-Host");
+      pair->attribute = PW_LOGIN_HOST;
+      pair->type = PW_TYPE_IPADDR;
+      pair->lvalue = get_ipaddr("200.240.31.80"); 
+
+      link = pair;
+
+      if ((pair=(VALUE_PAIR *)malloc(sizeof(VALUE_PAIR)))==(VALUE_PAIR *)NULL) {
+         log_err("userparse: system error: out of memory\n");
+         return (-1);
+      }
+
+      link->next = pair;
+
+      /* CALLBACK-NUMBER */
+
+      sprintf(pair->name,"Callback-Number");
+      pair->attribute = PW_DIALBACK_NO;
+      pair->type = PW_TYPE_STRING;
+      snprintf(pair->strvalue,AUTH_STRING_LEN,"5151154");
+      pair->lvalue = strlen(pair->strvalue);
+
+      link = pair;
+
+      if ((pair=(VALUE_PAIR *)malloc(sizeof(VALUE_PAIR)))==(VALUE_PAIR *)NULL) {
+         log_err("userparse: system error: out of memory\n");
+         return (-1);
+      }
+
+      link->next = pair;
+
+      /* CALLBACK-ID */
+
+      sprintf(pair->name,"Callback-Id");
+      pair->attribute = PW_DIALBACK_NAME;
+      pair->type = PW_TYPE_STRING;
+      snprintf(pair->strvalue,AUTH_STRING_LEN,"JOHN");
+      pair->lvalue = strlen(pair->strvalue);
+
+      link = pair;
+
+      if ((pair=(VALUE_PAIR *)malloc(sizeof(VALUE_PAIR)))==(VALUE_PAIR *)NULL) {
+         log_err("userparse: system error: out of memory\n");
+         return (-1);
+      }
+
+      link->next = pair;
+
+      /* LOGIN-SERVICE */
+
+      sprintf(pair->name,"Login-Service");
+      pair->attribute = PW_LOGIN_SERVICE;
+      pair->type = PW_TYPE_INTEGER;
+      pair->lvalue = PW_TELNET;
+
+      pair->next = (VALUE_PAIR *)NULL;
+
+      for (link = reply_first; link != (VALUE_PAIR *)NULL; link = link->next) {
+       log_err("Nome: %s, Atributo: %d, Tipo: %d, Lvalue: %d, StrValue: %s\n",link->name,link->attribute,link->type,link->lvalue,link->strvalue);
+      };
+
+      log_err("OK: Reply Values Parsed\n");
+
+   /* Update the callers pointers */
+   if (reply_first != (VALUE_PAIR *)NULL) {
+      *check_pairs = check_first;
+      *reply_pairs = reply_first;
+      return(0);
+   }
+
+   return(-1);
+
+}
+
+#endif /* RADIUSERSORACLE */

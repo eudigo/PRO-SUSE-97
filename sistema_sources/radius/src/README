@@ -1,0 +1,30 @@
+97/06/05 RADIUS 2.0.1 Source Release
+
+The contents of this directory (except for md5.h and md5.c) are
+Copyright 1997 Livingston Enterprises, Inc. and subject to the
+restrictions described in the LICENSE file.
+
+To build radiusd with SecurID support (sradiusd), see the instructions
+at the beginning of Makefile.
+
+To build radiusd and builddbm, use
+
+make EXT=x build
+
+where x is one of the files from conf:
+
+BSDOS_2.0		BSDI BSD/OS 2.0 or 2.1
+BSDOS_3.0		BSDI BSD/OS 3.0
+IRIX_5.2		SGI IRIX 5.2
+IRIX_6.3		SGI IRIX 6.3
+Linux_1.2		Linux 1.2.13
+Linux_2.0		Linux 2.0.30
+RS6000_4.1		IBM RS6000 AIX 4.1
+alpha_T3.0		DEC Alpha OSF/1 T3.0
+hp9000_10.01		HP 9000 HP/UX 10.01
+sun4_4.1		Sun Sparc SunOS 4.1.4
+sun4_5.5		Sun Sparc Solaris 2.5.1
+sun86_5.5		Sun Solaris x86 2.5.1
+
+If BSD/OS 3.0 make complains about the include command, delete the line
+starting with "include" from the Makefile and try again.

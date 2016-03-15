@@ -1,0 +1,9 @@
+clear
+
+# Variavel de ambiente do oracle
+
+ORACLE_HOME=/oracle/app/oracle/product/8.0.5;export ORACLE_HOME
+
+# Gera o arquivo executavel "radiusd"
+
+make -f demo_rdbms.mk build OBJS="acct.o attrprint.o dict.o log.o md5.o menu.o users.o util.o version.o radiusd.o" EXE=radiusd

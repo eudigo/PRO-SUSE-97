@@ -1,0 +1,62 @@
+OCIDateToText()
+
+Purpose
+
+Converts a date type to a character string. 
+
+Syntax
+
+sword OCIDateToText ( OCIError           *err, 
+                      CONST OCIDate      *date, 
+                      CONST text         *fmt, 
+                      ub1                fmt_length, 
+                      CONST text         *lang_name,
+                      ub4                lang_length, 
+                      ub4                *buf_size, 
+                      text               *buf );
+
+Parameters
+
+err (IN/OUT)
+
+The OCI error handle. If there is an error, it is recorded in err and this function returns OCI_ERROR. Obtain diagnostic information by calling OCIErrorGet(). 
+
+date (IN)
+
+Oracle date to be converted. 
+
+fmt (IN)
+
+Conversion format, if NULL string pointer, (text *) 0, then the date is converted to a character string in the default date format, "DD-MON-YY". 
+
+fmt_length (IN)
+
+Length of the fmt parameter. 
+
+lang_name (IN)
+
+Specifies the language in which names and abbreviations of months and days are returned; default language of session is used if lang_name is NULL ((text *) 0). 
+
+lang_length (IN)
+
+Length of the lang_name parameter. 
+
+buf_size (IN/OUT)
+
+       Size of the buffer (IN); 
+       Size of the resulting string is returned via this parameter(OUT). buf (OUT)
+
+Buffer into which the converted string is placed. 
+
+Comments
+
+Converts the given date to a string according to the specified format. The converted NULL-terminated date string is stored in buf. 
+
+Refer to the TO_DATE conversion function described in Chapter 3 of the Oracle8 SQL Reference for a description of format and NLS arguments. 
+
+This function returns an error if the buffer is too small, or if the function is passed an invalid format or unknown language. Overflow also causes an error. For example, converting a value of 10 into
+format '9' causes an error. 
+
+Related Functions
+
+OCIErrorGet() 

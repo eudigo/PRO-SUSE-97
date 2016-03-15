@@ -1,0 +1,6 @@
+# System: sun4_5.5 - SunOS 5.5.1 Generic sun4m sparc
+#
+# Solaris uses shadow passwords, so do not use -DNOSHADOW
+#
+CPPFLAGS = -Dsys5
+LIBS = -lsocket -lnsl

@@ -1,0 +1,126 @@
+OCIDefineByPos()
+
+Purpose
+
+Associates an item in a select-list with the type and output data buffer. 
+
+Syntax
+
+sword OCIDefineByPos ( OCIStmt     *stmtp, 
+                       OCIDefine   **defnpp,
+                       OCIError    *errhp,
+                       ub4         position,
+                       dvoid       *valuep,
+                       sb4         value_sz,
+                       ub2         dty,
+                       dvoid       *indp,
+                       ub2         *rlenp,
+                       ub2         *rcodep,
+                       ub4         mode );
+
+Parameters
+
+stmtp (IN/OUT)
+
+A handle to the requested SQL query operation. 
+
+defnpp (IN/OUT)
+
+A pointer to a pointer to a define handle. If this parameter is passed as NULL, this call implicitly allocates the define handle. In the case of a redefine, a non-NULL handle can be passed in this
+parameter. This handle is used to store the define information for this column. 
+
+errhp (IN/OUT)
+
+An error handle which can be passed to OCIErrorGet() for diagnostic information in the event of an error. 
+
+position (IN)
+
+The position of this value in the select list. Positions are 1-based and are numbered from left to right. For example, in the SELECT statement 
+
+SELECT empno, ssn, mgrno FROM employees;
+
+
+empno is at position 1, ssn is at position 2, and mgrno is at position 3. 
+
+valuep (IN/OUT)
+
+A pointer to a buffer or an array of buffers of the type specified in the dty parameter. A number of buffers can be specified when results for more than one row are desired in a single fetch call. 
+
+value_sz (IN)
+
+The size of each valuep buffer in bytes. If the data is stored internally in VARCHAR2 format, the number of characters desired, if different from the buffer size in bytes, may be additionally
+specified by the using OCIAttrSet(). 
+
+In an NLS conversion environment, a truncation error will be generated if the number of bytes specified is insufficient to handle the number of characters desired. 
+
+dty (IN)
+
+The data type. Named data type (SQLT_NTY) and REF (SQLT_REF) are valid only if the environment has been initialized with in object mode. For a listing of datatype codes and values, refer to
+Chapter 3, "Datatypes". 
+
+indp (IN)
+
+pointer to an indicator variable or array. For scalar data types, pointer to sb2 or an array of sb2s. Ignored for SQLT_NTY defines. For SQLT_NTY defines, a pointer to a named data type indicator
+structure or an array of named data type indicator structures is associated by a subsequent OCIDefineObject() call. 
+
+See the section "Indicator Variables" on page 2-29 for more information about indicator variables. 
+
+rlenp (IN/OUT)
+
+Pointer to array of length of data fetched. Each element in rlenp is the length of the data in the corresponding element in the row after the fetch. 
+
+rcodep (OUT)
+
+Pointer to array of column-level return codes 
+
+mode (IN)
+
+The valid modes are: 
+
+       OCI_DEFAULT - This is the default mode. 
+       OCI_DYNAMIC_FETCH - For applications requiring dynamically allocated data at the time of fetch, this mode must be used. The user may additionally call OCIDefineDynamic() to set
+       up a callback function that will be invoked to receive the dynamically allocated buffers and. The valuep and value_sz parameters are ignored in this mode. 
+
+Comments
+
+This call defines an output buffer which will receive data retrieved from Oracle. The define is a local step which is necessary when a SELECT statement returns data to your OCI application. 
+
+This call also implicitly allocates the define handle for the select-list item. If a non-NULL pointer is passed in *defnpp, the OCI assumes that this points to a valid handle that has been previously
+allocated with a call to OCIHandleAlloc() or OCIDefineByPos(). This would be true in the case of an application which is redefining a handle to a different addresses so it can reuse the same
+define handle for multiple fetches. 
+
+Defining attributes of a column for a fetch is done in one or more calls. The first call is to OCIDefineByPos(), which defines the minimal attributes required to specify the fetch. 
+
+Following the call to OCIDefineByPos() additional define calls may be necessary for certain data types or fetch modes: 
+
+       A call to OCIDefineArrayOfStruct() is necessary to set up skip parameters for an array fetch of multiple columns. 
+       A call to OCIDefineObject() is necessary to set up the appropriate attributes of a named data type (i.e., object or collection) or REF fetch. In this case the data buffer pointer in
+       OCIDefineByPos() is ignored. 
+       Both OCIDefineArrayOfStruct() and OCIDefineObject() must be called after OCIDefineByPos() in order to fetch multiple rows with a column of named data types. 
+
+For a LOB define, the buffer pointer must be a pointer to a lob locator of type OCILobLocator, allocated by the OCIDescriptorAlloc() call. LOB locators, and not LOB values, are always returned
+for a LOB column. LOB values can then be fetched using OCI LOB calls on the fetched locator. This same mechanism is true for all descriptor datatypes. 
+
+For NCHAR (fixed and varying length), the buffer pointer must point to an array of bytes sufficient for holding the required NCHAR characters. 
+
+Nested table columns are defined and fetched like any other named data type. 
+
+When defining an array of descriptors or locators, you should pass in an array of pointers to descriptors or locators. 
+
+When doing an array define for character columns, you should pass in an array of character buffers. 
+
+If the mode parameter is this call is set to OCI_DYNAMIC_FETCH, the client application can fetch data dynamically at runtime. Runtime data can be provided in one of two ways: 
+
+       callbacks using a user-defined function which must be registered with a subsequent call to OCIDefineDynamic(). When the client library needs a buffer to return the fetched data, the
+       callback will be invoked and the runtime buffers provided will return a piece or the whole data. 
+       a polling mechanism using calls supplied by the OCI. This mode is assumed if no callbacks are defined. In this case, the fetch call returns the OCI_NEED_DATA error code, and a
+       piecewise polling method is used to provide the data. 
+
+       See Also: For more information about using the OCI_DYNAMIC_FETCH mode, see the section "Run Time Data Allocation and Piecewise Operations" on page 7-16. 
+
+       For more information about defines, see "Defining" on page 5-13. 
+
+Related Functions
+
+OCIDefineArrayOfStruct(), OCIDefineDynamic(), OCIDefineObject() 
+

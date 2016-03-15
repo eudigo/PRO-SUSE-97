@@ -1,0 +1,57 @@
+menu
+
+        *** This is a test Menu coming from RADIUS ***
+
+        Menus can contain up to 1500 bytes of data.  They can contain
+        any non-null characters.  Option selections require an exact match.
+        If case insensitivity is required, enter the menu choices twice,
+        once in upper and once in lower case.
+
+       Please enter an option:
+
+       1 Start PPP session
+       2 Start CSLIP session
+       3 Start SLIP session
+       4 Start login session
+       5 Go to second menu
+       6 Exit
+
+       Option: 
+end
+
+1
+	Service-Type = Framed-User,
+	Framed-Protocol = PPP,
+	Framed-IP-Address = 255.255.255.254,
+	Framed-Routing = None,
+	Framed-Compression = Van-Jacobson-TCP-IP,
+	Framed-MTU = 1500
+#
+2
+	Service-Type = Framed-User,
+	Framed-Protocol = SLIP
+	Framed-IP-Address = 255.255.255.254,
+	Framed-Routing = None,
+	Framed-Compression = Van-Jacobson-TCP-IP,
+	Framed-MTU = 1006
+#
+3
+	Service-Type = Framed-User,
+	Framed-Protocol = SLIP
+	Framed-IP-Address = 255.255.255.254,
+	Framed-Routing = None,
+	Framed-Compression = None,
+	Framed-MTU = 1006
+#
+4
+	Service-Type = Login-User,
+	Login-Service = PortMaster,
+	Termination-Menu = "menu1"
+#
+5
+	Menu = "menu2"
+#
+6
+	Menu = "EXIT"
+DEFAULT
+	Menu = "menu1"
